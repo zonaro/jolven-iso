@@ -62,7 +62,9 @@ class NobaraCatalog {
       final checksumUrl = Uri.tryParse(checksumMatches.last.group(1)!);
       if (checksumUrl == null ||
           !trustedDownloadUri(checksumUrl) ||
-          checksumUrl.pathSegments.last != '$name.sha256sum') continue;
+          checksumUrl.pathSegments.last != '$name.sha256sum') {
+        continue;
+      }
       records[edition] = NobaraIso(
         edition: edition, name: name, url: url, checksumUrl: checksumUrl);
     }

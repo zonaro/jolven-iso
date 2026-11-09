@@ -11,3 +11,6 @@
 - Distribuir Linux em AppImage; Windows x64 em ZIP portátil e instalador EXE, ambos no CI, com checksums. macOS futuro permanece aplicativo nativo.
 - Antes de concluir issue, comentar o commit, evidências dos testes e limitações remanescentes.
 - Leia .agents/architecture.md e .agents/roadmap.md antes de alterar o motor de imagens.
+
+- O comando `compose` é experimental: exige `--experimental` e `--accept-unverified-provenance`. Nunca habilite no Flutter sem boot e instalação validada em VM e dispositivo real.
+- Verifique a presença e a integridade de tarball local do Jolven; a API `releases/latest` pode estar indisponível. Não invente versão ou artefato.

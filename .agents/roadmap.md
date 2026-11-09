@@ -8,3 +8,9 @@
 ### Princípios de escopo
 
 M1 **não** contém remasterização pronta. A função principal é conferir ISO, escolher opções e produzir um plano serializado. O compose só será liberado quando for compatível com a estrutura real da ISO oficial e existirem provas de instalação.
+
+### Implementado (parcial, experimental)
+
+- #3: parser do catálogo oficial, download retomável, checksum oficial via HTTPS; ainda faltam teste de download em rede real, persistência de catálogo e UX avançada.
+- #4/#5: CLI de remasterização e extração segura de pacote Jolven, **exige root**, tarball local e opção `--experimental`; testes unitários não substituem QA da ISO real.
+- #8: consulta/download pela interface Flutter; geração de ISO experimental deliberadamente mantida fora da UI.

@@ -4,7 +4,7 @@
 
 Projeto independente do [Jolven](https://github.com/zonaro/jolven) e do [Nobara](https://nobaraproject.org/). Não é uma ISO oficial ou endossada pelo Nobara.
 
-> **Estado: M1 em desenvolvimento.** Esta versão oferece interface Flutter, seleção local de ISO, cálculo e conferência de SHA-256 e exportação de um projeto JSON. **Ainda NÃO injeta Jolven, NÃO gera uma ISO modificada e NÃO instala aplicativos extras.** Essas operações só serão habilitadas após implementação e testes de inicialização e instalação.
+> **Estado: M1/M2 experimental.** A interface Flutter pode consultar o catálogo oficial, baixar e conferir ISO, e exportar um projeto. Há também um protótipo de injeção/remasterização **somente pela CLI Linux**, ainda sem testes reais de boot/instalação. Não anunciar ISOs geradas por este protótipo como prontas.
 
 ## Escopo
 
@@ -40,6 +40,29 @@ python3 -m unittest discover -s engine/tests
 
 O comando `plan` **apenas valida e descreve a operação**; não modifica imagens.
 
+### Injeção e remasterização EXPERIMENTAIS (Linux)
+
+Este estágio usa `xorriso`, `unsquashfs`, `mksquashfs`, `mount`, `umount`, `e2fsck` e `resize2fs`, com permissões de root **explicitamente fornecidas** pelo operador. **Não é acessível pelo botão “Gerar ISO” do Flutter.**
+
+Pré-condições: baixar ISO oficial do Nobara e conferir seu checksum, obter um arquivo Jolven `usr/` tar.gz de uma versão conhecida e seu SHA-256 independente, reservar no mínimo três vezes o tamanho da ISO + 2 GiB livres. O compositor **nunca** altera a ISO de entrada: gera um novo arquivo e recusa sobrescrita.
+
+```bash
+PYTHONPATH=engine python3 -m jolven_iso.cli requirements
+PYTHONPATH=engine python3 -m jolven_iso.cli plan --project projeto.json
+sudo env PYTHONPATH=engine python3 -m jolven_iso.cli compose \
+  --project projeto.json \
+  --jolven-archive /caminho/jolven-linux-x86_64.tar.gz \
+  --jolven-sha256 <HASH_CONHECIDO_DO_JOLVEN> \
+  --output /caminho/jolven-nobara-experimental.iso \
+  --experimental --accept-unverified-provenance
+```
+
+O compositor reconhece preliminarmente `LiveOS/squashfs.img` com raiz diretamente no SquashFS ou imagem ext4 aninhada `LiveOS/rootfs.img`; recusa layouts desconhecidos. Insere o tarball validado em `/usr` e registra `/usr/share/wayland-sessions/io.github.zonaro.Jolven.GameMode.desktop` (sem trocar o login padrão). Se faltar Gamescope, o processo falha em vez de prometer uma sessão utilizável. Dependências adicionais do Jolven ainda não são instaladas automaticamente; elas precisam estar presentes no sistema-base para a sessão funcionar.
+
+**Limitações críticas:** ainda não executamos o ciclo boot live → instalar → reiniciar nas cinco edições; a saída pode não ser inicializável nem persistir corretamente no sistema instalado. Secure Boot **não está validado**. Não distribuir a ISO produzida como release estável. O modo experimental aceita checksum informado pelo operador e **não** prova a procedência criptográfica da ISO. Builds oficiais futuros exigem catálogo autenticado, dependências, QA e assinatura conforme aplicável.
+
+A publicação do tarball binário Jolven também precisa ser confirmada: o endpoint `releases/latest` do projeto não retornou um artefato verificável na inspeção atual; por isso o protótipo exige um arquivo local com hash conhecido.
+
 ### AppImage
 
 O pipeline em `.github/workflows/ci.yml` executa testes, compila Flutter Linux e empacota usando `scripts/package-appimage.sh`. O AppImage é o formato pretendido de distribuição e será publicado automaticamente em releases marcadas com `v*` **quando o workflow passar**. A portabilidade e a execução real em múltiplas distros ainda precisam de validação; não há release pronta garantida neste estágio.
@@ -73,7 +96,7 @@ Pacotes ainda **não são assinados digitalmente**: o Windows pode exibir alerta
 
 ## Segurança e limitações
 
-- Sempre obter a ISO pelo site oficial do Nobara e conferir o hash publicado por fonte oficial. O aplicativo **não conhece magicamente o SHA oficial**: o campo é preenchido pelo usuário nesta fase.
+- Sempre obter a ISO pelo site oficial do Nobara e conferir o hash publicado por fonte oficial. O aplicativo busca no catálogo oficial e usa o checksum do servidor do Nobara nos downloads internos; se a ISO for local, o hash esperado pode ser preenchido pelo usuário.
 - Uma ISO alterada terá **outro SHA-256** e poderá invalidar hipóteses de Secure Boot. Não anunciar suporte a Secure Boot para uma imagem modificada sem validação e assinatura legítima.
 - Nunca executar uma ISO como programa, baixar scripts com privilégios ou inserir chaves secretas no perfil.
 - Jogos/ROMs e emuladores continuam aplicativos independentes; Jolven não embute RetroArch.

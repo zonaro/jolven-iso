@@ -11,6 +11,9 @@ import re
 import sys
 from pathlib import Path
 
+from .remaster import RemasterError, prerequisites, remaster_iso
+from .overlay import OverlayError
+
 EDITIONS = {"official", "gnome", "kde", "steam-htpc", "steam-handheld"}
 EXTRAS = {"sunshine", "retroarch", "uzdoom", "eden", "cemu", "openrgb"}
 HASH_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
@@ -145,17 +148,44 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--sha256", required=True)
     plan = commands.add_parser("plan", help="Validar JSON e gerar plano somente-leitura")
     plan.add_argument("--project", type=Path, required=True)
+    commands.add_parser("requirements", help="Requisitos do compositor Linux experimental")
+    compose = commands.add_parser("compose", help="Gerar ISO experimental sem validação de boot")
+    compose.add_argument("--project", type=Path, required=True)
+    compose.add_argument("--jolven-archive", type=Path, required=True)
+    compose.add_argument("--jolven-sha256", required=True)
+    compose.add_argument("--output", type=Path, required=True)
+    compose.add_argument("--experimental", action="store_true")
+    compose.add_argument("--accept-unverified-provenance", action="store_true",
+      help="Confirmo que obtive ISO e checksum de uma fonte oficial confiável")
     options = parser.parse_args(argv)
     try:
         if options.command == "inspect":
             result = check_iso(options.iso)
         elif options.command == "verify":
             result = verify_iso(options.iso, options.sha256)
-        else:
+        elif options.command == "plan":
             result = plan_project(options.project)
+        elif options.command == "requirements":
+            result = prerequisites()
+        else:
+            if not options.accept_unverified_provenance:
+                raise PreflightError(
+                    "Composição requer confirmação explícita da procedência do SHA oficial."
+                )
+            if not options.experimental:
+                raise PreflightError(
+                    "Remasterização ainda sem testes reais: use --experimental."
+                )
+            project = plan_project(options.project)
+            result = remaster_iso(
+                Path(project["source"]["path"]), options.output,
+                jolven_archive=options.jolven_archive,
+                jolven_sha256=options.jolven_sha256,
+                experimental=True,
+            )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (OSError, PreflightError) as exc:
+    except (OSError, PreflightError, OverlayError, RemasterError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 2
 

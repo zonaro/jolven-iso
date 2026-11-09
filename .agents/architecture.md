@@ -26,3 +26,10 @@ O manifest é um registro de intenção; não é uma ISO. `source_sha256` é has
 Chaves de APIs e senhas são proibidas no JSON. O setup após login deverá usar keyring e confirmação. Evitar credenciais em logs, arquivos temporários e parâmetros de linha de comando. A versão oficial do Jolven recusa `ID=nobara` no instalador de usuário; integração futura requer pacote system-wide adaptado, nunca rodar o install.sh sob root como atalho.
 
 Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, Jolven ou software incluído.
+
+## M2 experimental (não certificado)
+
+- `engine/jolven_iso/overlay.py`: checa SHA-256 do tarball Jolven, rejeita caminhos fora de `usr/`, links, arquivos especiais e permite apenas entradas regulares; registra Jolven Session sem modificar o greeter original.
+- `engine/jolven_iso/remaster.py`: com root explícito, clona `LiveOS/squashfs.img`, edita o rootfs em cópia e tenta reproduzir boot metadata via `xorriso -boot_image any replay`.
+- Não existe evidência de que ISOs reais das cinco edições resultam instaláveis; não habilitar na interface nem entregar como estável. Faltam dependências completas via DNF, first-boot opcional, compatibilidade Secure Boot e QA físico/VM.
+- A origem de ISO local é verificada por hash fornecido; apenas downloads iniciados pelo catálogo oficial possuem checksum recuperado da página oficial. HTTPS não equivale a verificação de assinatura criptográfica.
