@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/iso_project.dart';
+import 'services/nobara_catalog.dart';
+import 'services/iso_downloader.dart';
 
 void main() => runApp(const JolvenIsoApp());
 
@@ -45,6 +47,11 @@ class _BuilderScreenState extends State<BuilderScreen> {
   String _status = 'Selecione uma ISO oficial do Nobara para começar.';
   final _expectedHash = TextEditingController();
   final _extras = <String>{};
+  final _catalogService = NobaraCatalog();
+  final _downloader = IsoDownloader();
+  List<NobaraIso> _catalog = [];
+  NobaraIso? _selectedOnline;
+  double? _downloadProgress;
 
   static const _options = <String, String>{
     'sunshine': 'Sunshine',
@@ -57,6 +64,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
   @override
   void dispose() {
+    _downloader.cancel();
     _expectedHash.dispose();
     super.dispose();
   }
@@ -71,8 +79,85 @@ class _BuilderScreenState extends State<BuilderScreen> {
     setState(() {
       _isoPath = file.path;
       _actualHash = null;
+      _expectedHash.clear();
       _status = 'ISO selecionada. Confira o SHA-256 com o publicado pelo Nobara.';
     });
+  }
+
+
+  Future<void> _loadCatalog() async {
+    if (_working) return;
+    setState(() {
+      _working = true;
+      _status = 'Consultando as edições publicadas no site oficial do Nobara...';
+    });
+    try {
+      final entries = await _catalogService.load();
+      if (!mounted) return;
+      setState(() {
+        _catalog = entries;
+        _selectedOnline = entries.where((iso) => iso.edition == _edition).firstOrNull;
+        _status = 'Catálogo oficial carregado. Selecione a edição e baixe a ISO.';
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status = 'Não foi possível consultar o catálogo: $error');
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _downloadSelected() async {
+    final selected = _selectedOnline;
+    if (_working || selected == null || selected.edition != _edition) return;
+    final destination = await getSaveLocation(
+      suggestedName: selected.name,
+      acceptedTypeGroups: [
+        const XTypeGroup(label: 'Imagem ISO', extensions: ['iso']),
+      ],
+    );
+    if (!mounted || destination == null) return;
+    setState(() {
+      _working = true;
+      _downloadProgress = null;
+      _actualHash = null;
+      _status = 'Lendo checksum publicado no servidor oficial do Nobara...';
+    });
+    try {
+      final expected = await _catalogService.expectedHash(selected);
+      if (!mounted) return;
+      _expectedHash.text = expected;
+      final hash = await _downloader.download(
+        selected,
+        File(destination.path),
+        expectedSha256: expected,
+        onProgress: (received, total) {
+          if (!mounted) return;
+          setState(() {
+            _downloadProgress = total == null || total == 0
+                ? null : received / total;
+            _status = total == null
+                ? 'Baixados ${received ~/ (1024 * 1024)} MiB...'
+                : 'Baixados ${received ~/ (1024 * 1024)} de '
+                  '${total ~/ (1024 * 1024)} MiB...';
+          });
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _isoPath = destination.path;
+        _actualHash = hash;
+        _downloadProgress = 1;
+        _status = 'ISO baixada e SHA-256 conferido com o checksum oficial.';
+      });
+    } on DownloadCancelled {
+      if (mounted) setState(() => _status = 'Download interrompido. Arquivo .part pode ser retomado.');
+    } catch (error) {
+      if (mounted) setState(() => _status = 'Download não concluído: $error');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
   }
 
   Future<void> _openOfficialSite() async {
@@ -177,7 +262,12 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     ),
                 ],
                 onChanged: (value) {
-                  if (value != null) setState(() => _edition = value);
+                  if (value != null) {
+                    setState(() {
+                      _edition = value;
+                      _selectedOnline = _catalog.where((iso) => iso.edition == value).firstOrNull;
+                    });
+                  }
                 },
               ),
               const SizedBox(height: 8),
@@ -196,6 +286,34 @@ class _BuilderScreenState extends State<BuilderScreen> {
               const SizedBox(height: 8),
               Text(_isoPath ?? 'Nenhum arquivo selecionado.',
                   maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 12),
+              Wrap(spacing: 12, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: _working ? null : _loadCatalog,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Consultar catálogo oficial'),
+                ),
+                if (_selectedOnline != null)
+                  FilledButton.tonalIcon(
+                    onPressed: _working ? null : _downloadSelected,
+                    icon: const Icon(Icons.download),
+                    label: const Text('Baixar ISO com verificação'),
+                  ),
+                if (_working && _selectedOnline != null)
+                  TextButton.icon(
+                    onPressed: _downloader.cancel,
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Cancelar download'),
+                  ),
+              ]),
+              if (_selectedOnline != null) ...[
+                const SizedBox(height: 6),
+                SelectableText('Disponível no site oficial: ${_selectedOnline!.name}'),
+              ],
+              if (_downloadProgress != null) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: _downloadProgress),
+              ],
               const SizedBox(height: 14),
               TextField(
                 controller: _expectedHash,
