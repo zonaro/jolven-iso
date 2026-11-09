@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jolven_iso/models/iso_project.dart';
 
 void main() {
-  final hash = 'a' * 64;
+  final hash = ''.padRight(64, 'a');
   test('preserva as cinco edições sem inventar outra', () {
     expect(NobaraEdition.values.length, 5);
     expect(NobaraEdition.steamHandheld.id, 'steam-handheld');
@@ -31,7 +31,7 @@ void main() {
       edition: NobaraEdition.kde,
       sourceIso: '/tmp/nobara.iso',
       sourceSha256: hash,
-      expectedSha256: 'b' * 64,
+      expectedSha256: ''.padRight(64, 'b'),
       extras: const [],
       theme: 'Jolven',
       accentHex: '#A78BFA',
