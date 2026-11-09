@@ -7,6 +7,7 @@
 3. **Engine CLI (Python)**: comandos `inspect`, `verify` e `plan`; sem efeitos colaterais sobre imagens. Futuramente `compose` em Linux, isolado e com aprovação.
 4. **Perfis por edição**: GDM/SDDM no GNOME/KDE/Official e autologin nas variantes Steam. Descobrir características da ISO, não presumir caminhos.
 5. **AppImage**: empacotamento do bundle Flutter Linux. FUSE e bibliotecas do host precisam de testes reais.
+6. **Windows x64**: runner Flutter nativo empacotado em ZIP com DLLs/data e instalador EXE por usuário via Inno Setup. Ainda sem assinatura digital; requer validação real. Não confundir distribuição da interface com execução do motor Linux de remasterização.
 
 ## Pipeline planejado (NÃO IMPLEMENTADO)
 
