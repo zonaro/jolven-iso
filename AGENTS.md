@@ -8,6 +8,6 @@
 - Verificar a disponibilidade de pacotes extras no sistema de pacotes específico da edição; não usar downloads arbitrários como fallback silencioso.
 - Testar as cinco edições (Official, GNOME, KDE, Steam-HTPC, Steam-Handheld), respeitando logins automáticos e uso de GDM/SDDM.
 - Preferir dependências mínimas, documentação pt-BR, análise estática e testes automatizados.
-- AppImage para Linux é requisito de distribuição; builds para Windows/macOS futuros permanecem aplicativos nativos.
+- Distribuir Linux em AppImage; Windows x64 em ZIP portátil e instalador EXE, ambos no CI, com checksums. macOS futuro permanece aplicativo nativo.
 - Antes de concluir issue, comentar o commit, evidências dos testes e limitações remanescentes.
 - Leia .agents/architecture.md e .agents/roadmap.md antes de alterar o motor de imagens.
