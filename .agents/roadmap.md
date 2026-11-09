@@ -1,6 +1,6 @@
 # Roadmap — Jolven ISO Builder
 
-- **M1 (agora):** #2 Flutter, modelo e testes; #3 ISO/sha catálogo oficial; #8 UI; #9 AppImage; #12 segurança e documentação.
+- **M1 (agora):** #2 Flutter, modelo e testes; #3 ISO/sha catálogo oficial; #8 UI; #9 AppImage; #12 segurança e documentação; #13 build Windows x64 (ZIP portátil + instalador EXE).
 - **M2:** #4 remasterização confiável de ISO oficial; #5 instalar Jolven system-wide e Jolven Session em todas as edições; #10 backend Linux e adaptação Windows/macOS.
 - **M3:** #6 opcionais via DNF/Flatpak e first-boot; #7 integração segura de perfis e segredos pós-login.
 - **M4:** #11 boot/install e drivers; fechar cobertura de #8, #9, #10; publicar ISO apenas depois de QA.
