@@ -1,5 +1,5 @@
 name: jolven_iso
-description: Jolven ISO Builder: personalize official Nobara images with Jolven.
+description: 'Jolven ISO Builder: personalize official Nobara images with Jolven.'
 publish_to: 'none'
 version: 0.1.0+1
 environment:
