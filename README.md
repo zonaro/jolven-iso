@@ -13,7 +13,7 @@ Projeto independente do [Jolven](https://github.com/zonaro/jolven) e do [Nobara]
 - Extras planejados: Sunshine, RetroArch, UZDoom, Eden, Cemu e OpenRGB mediante disponibilidade comprovada no DNF/Flatpak e consentimento no first boot.
 - Configuração: preferências não sensíveis, tema e cor. Tokens, senhas e chaves **não são incorporados à ISO**; configuração segura ocorre após login.
 - Interface multiplataforma **Flutter** (Linux, Windows e macOS). O remasterizador, quando implementado, exigirá ambiente Linux (nativo, WSL2 ou VM).
-- Distribuição do app no Linux: **AppImage**, com workflow de integração e empacotamento inicial.
+- Distribuição do app: **AppImage no Linux** e **ZIP portátil + instalador EXE no Windows x64**, produzidos pelo CI. macOS permanece planejado.
 
 ## Desenvolvimento
 
@@ -48,6 +48,28 @@ O pipeline em `.github/workflows/ci.yml` executa testes, compila Flutter Linux e
 flutter build linux --release
 bash scripts/package-appimage.sh
 ```
+
+### Windows x64
+
+O GitHub Actions compila a interface Flutter no runner Windows e gera dois pacotes em cada build:
+
+- `Jolven-ISO-Builder-VERSAO-Windows-x64-Portable.zip`: extraia tudo e execute `jolven_iso.exe` na pasta. O EXE **não funciona isoladamente**: mantenha as DLLs e `data/` juntos.
+- `Jolven-ISO-Builder-VERSAO-Windows-x64-Setup.exe`: instalador Inno Setup por usuário, com atalho e desinstalador.
+
+Ambos incluem `.sha256`. Em um push para `main`, os arquivos são artefatos do [GitHub Actions](https://github.com/zonaro/jolven-iso/actions); em uma tag `v*`, serão anexados à release **se todos os jobs passarem**.
+
+Para compilar localmente, use Windows com Flutter, Visual Studio C++ Desktop e Inno Setup 6 instalado:
+
+```powershell
+flutter create --platforms=windows --project-name jolven_iso .
+flutter pub get
+flutter analyze
+flutter test
+flutter build windows --release
+./scripts/package-windows.ps1
+```
+
+Pacotes ainda **não são assinados digitalmente**: o Windows pode exibir alertas SmartScreen. O aplicativo requer o runtime Visual C++ adequado; o instalador atual não o provisiona automaticamente. Uma release estável exige testes reais de instalação e inicialização em Windows 10/11. A interface Windows **ainda não gera ISO**: futuramente o motor de remasterização precisará de Linux via WSL2 ou VM (issue #10).
 
 ## Segurança e limitações
 
