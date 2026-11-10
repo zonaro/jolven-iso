@@ -21,7 +21,7 @@ class ExtrasTests(unittest.TestCase):
             self.assertEqual(json.loads((root / PLAN).read_text()),
                              ["retroarch", "sunshine"])
             source = (root / SCRIPT).read_text()
-            self.assertIn('input("Consultar os repositórios Nobara', source)
+            self.assertIn('response = input(', source)
             self.assertIn("dnf", source)
             self.assertNotIn("systemctl enable", source)
             self.assertIn("remote-info", source)
