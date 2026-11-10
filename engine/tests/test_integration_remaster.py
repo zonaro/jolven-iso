@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from jolven_iso.remaster import remaster_iso, prerequisites
+from jolven_iso.remaster import remaster_iso, prerequisites, RemasterError
 
 
 def run(*args):
@@ -102,6 +102,18 @@ class RemasterSmokeTest(unittest.TestCase):
                              / "jolven-iso-setup.desktop").is_file())
             self.assertTrue((unpacked / "usr/libexec"
                              / "jolven-iso-first-run").is_file())
+            mismatched = work / "Nobara-45-GNOME-2026-08-28.iso"
+            source.rename(mismatched)
+            blocked = work / "should-not-exist.iso"
+            with self.assertRaisesRegex(RemasterError, "VERSION_ID differ"):
+                remaster_iso(
+                    mismatched, blocked,
+                    jolven_archive=archive_path,
+                    jolven_sha256=digest,
+                    appearance={"theme": "Jolven", "accent_hex": "#A78BFA"},
+                    experimental=True,
+                )
+            self.assertFalse(blocked.exists())
 
 
 if __name__ == "__main__":

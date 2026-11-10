@@ -20,7 +20,7 @@ from .overlay import install_jolven, file_sha256
 from .profile import apply_appearance
 from .extras import write_optional_extras
 from .audit import audit_iso
-from .image_identity import inspect_nobara_root, IdentityError
+from .image_identity import inspect_nobara_root, parse_official_filename
 
 
 class RemasterError(RuntimeError):
@@ -225,6 +225,13 @@ def remaster_iso(
         else:
             raise RemasterError(
                 "Unsupported Nobara LiveOS layout: no rootfs.img or usr/."
+            )
+        published_name = parse_official_filename(source.name)
+        if published_name is not None and (
+            published_name["release"] != identity["version_id"]
+        ):
+            raise RemasterError(
+                "ISO filename release and staged Nobara root VERSION_ID differ."
             )
         patched = workspace / "patched-squashfs.img"
         squash_args = [

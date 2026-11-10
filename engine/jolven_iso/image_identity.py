@@ -72,9 +72,16 @@ def inspect_nobara_root(root: Path) -> dict:
     release = root / "etc/os-release"
     # /etc/os-release is usually a link to ../usr/lib/os-release.
     if release.is_symlink():
-        target = (release.parent / release.readlink()).resolve()
+        link = release.readlink()
+        # Absolute links are absolute *inside* the staged Linux root,
+        # not paths in the build host. Relative links remain relative.
+        if link.is_absolute():
+            target = (root / str(link).lstrip("/")).resolve()
+        else:
+            target = (release.parent / link).resolve()
         if not target.is_relative_to(root.resolve()):
             raise IdentityError("os-release points outside staged Linux root.")
+        release = target
     elif not release.is_file():
         release = root / "usr/lib/os-release"
     if not release.is_file() or release.stat().st_size > 16_384:

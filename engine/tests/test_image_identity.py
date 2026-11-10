@@ -57,11 +57,22 @@ class IdentityTests(unittest.TestCase):
             with self.assertRaises(IdentityError):
                 inspect_nobara_root(root)
 
+    def test_absolute_symlink_inside_staged_root_is_valid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            (root / "etc").mkdir(parents=True)
+            (root / "usr/lib").mkdir(parents=True)
+            (root / "usr/lib/os-release").write_text(
+                "ID=nobara\nVERSION_ID=44\n"
+            )
+            (root / "etc/os-release").symlink_to("/usr/lib/os-release")
+            self.assertEqual(inspect_nobara_root(root)["version_id"], "44")
+
     def test_symlink_escape_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "root"
             (root / "etc").mkdir(parents=True)
-            (root / "etc/os-release").symlink_to("/etc/os-release")
+            (root / "etc/os-release").symlink_to("../../../../etc/os-release")
             with self.assertRaises(IdentityError):
                 inspect_nobara_root(root)
 
