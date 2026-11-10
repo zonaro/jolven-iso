@@ -38,13 +38,27 @@ jobs:
           sha256sum -c *.sha256
           cd ..
           PYTHONPATH=engine python3 - <<'PY'
+          import re
+          import sys
           from pathlib import Path
           from jolven_iso.overlay import inspect_archive
-          for tarball in Path('dist').glob('jolven-linux-*.tar.gz'):
+          expected = f"{sys.version_info.major}.{sys.version_info.minor}"
+          tarballs = list(Path('dist').glob('jolven-linux-*.tar.gz'))
+          assert len(tarballs) == 1, "Expected exactly one pinned Jolven archive"
+          for tarball in tarballs:
               checksum = next(tarball.parent.glob(tarball.name + '.sha256'))
               sha = checksum.read_text().split()[0]
               members = inspect_archive(tarball, sha)
-              print('Verified', tarball.name, 'with', len(members), 'entries')
+              versions = set()
+              for member in members:
+                  match = re.search(r"/python(3\.[0-9]+)/site-packages/", member.name)
+                  if match:
+                      versions.add(match.group(1))
+              assert versions == {expected}, (
+                  f"Jolven site-packages {versions} != build Python {expected}"
+              )
+              print('Verified', tarball.name, 'with', len(members),
+                    'entries for Python', expected)
           PY
       - uses: actions/upload-artifact@v4
         with:
