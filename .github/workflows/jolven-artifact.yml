@@ -1,0 +1,53 @@
+name: Build pinned Jolven artifact for ISO injection
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/jolven-artifact.yml
+      - scripts/build-jolven-archive.sh
+
+permissions:
+  contents: read
+
+jobs:
+  jolven-artifact:
+    name: Build verified Jolven usr/ tarball
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:45
+    env:
+      JOLVEN_SHA: dbac3872f85983bea2c85e6d4c69f78f0ccf2265
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Fedora build dependencies
+        run: |
+          dnf -y install git gcc gcc-c++ meson ninja-build pkgconf-pkg-config \
+            gtk4-devel libadwaita-devel glib2-devel blueprint-compiler \
+            gettext desktop-file-utils python3 python3-gobject \
+            python3-pillow python3-requests python3-pyyaml \
+            tar gzip coreutils findutils
+      - name: Build Jolven at pinned SHA
+        run: |
+          bash scripts/build-jolven-archive.sh "$JOLVEN_SHA" dist
+      - name: Validate archive and SHA-256
+        run: |
+          cd dist
+          sha256sum -c *.sha256
+          cd ..
+          PYTHONPATH=engine python3 - <<'PY'
+          from pathlib import Path
+          from jolven_iso.overlay import inspect_archive
+          for tarball in Path('dist').glob('jolven-linux-*.tar.gz'):
+              checksum = next(tarball.parent.glob(tarball.name + '.sha256'))
+              sha = checksum.read_text().split()[0]
+              members = inspect_archive(tarball, sha)
+              print('Verified', tarball.name, 'with', len(members), 'entries')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jolven-Pinned-Linux-x86_64-Artifact
+          path: |
+            dist/jolven-linux-*.tar.gz
+            dist/jolven-linux-*.tar.gz.sha256
+          if-no-files-found: error

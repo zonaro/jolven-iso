@@ -29,3 +29,5 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #11: a auditoria estrutural PVD/El Torito/MBR/GPT agora bloqueia saída inconsistente; teste sintético inclui catálogo El Torito. Não substitui boot, instalação ou testes de GPU.
 
 - #11: adicionado roteiro manual `docs/qa-nobara.md` e launcher VM isolado `scripts/qa-nobara-vm.sh`; evidências reais por edição seguem obrigatórias.
+
+- #5: workflow de artefato Jolven separado, compilando código upstream por commit imutável em Fedora e verificando tarball `usr/` + SHA-256. O arquivo fica no Actions; automação para buscá-lo diretamente pela GUI ainda pendente.
