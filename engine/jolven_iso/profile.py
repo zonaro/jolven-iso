@@ -37,6 +37,13 @@ def apply_appearance(root: Path, appearance: dict) -> str:
     """Requires compiled Jolven GSettings schema inside the root."""
     root = root.resolve(strict=True)
     location = root / SCHEMA_DIR
+    current = root
+    for component in SCHEMA_DIR.parts:
+        current = current / component
+        if current.is_symlink():
+            raise ProfileError(
+                "Refusing to compile schemas through a filesystem symlink."
+            )
     if not location.is_dir():
         raise ProfileError("Root lacks GLib schemas directory.")
     name = "io.github.zonaro.Jolven.gschema.xml"

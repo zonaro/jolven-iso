@@ -32,6 +32,22 @@ class ProfileTests(unittest.TestCase):
         with self.assertRaises(ProfileError):
             render_override({"theme": "Jolven", "accent_hex": "#bad'xx"})
 
+    def test_rejects_symlinked_schema_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            external = Path(tmp) / "external"
+            (root / "usr/share").mkdir(parents=True)
+            external.mkdir()
+            (external / "io.github.zonaro.Jolven.gschema.xml").write_text(
+                "<schemalist/>"
+            )
+            (root / "usr/share/glib-2.0").symlink_to(external)
+            with self.assertRaisesRegex(ProfileError, "symlink"):
+                apply_appearance(root, {
+                    "theme": "Jolven", "accent_hex": "#A78BFA"
+                })
+            self.assertFalse((external / OVERRIDE).exists())
+
     def test_defaults_compiled_without_changing_user_profile(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
