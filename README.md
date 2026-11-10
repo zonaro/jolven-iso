@@ -89,7 +89,7 @@ A tela permite **Verificar motor de ISO**, **Validar projeto no motor** (Linux n
 
 ### AppImage
 
-O pipeline em `.github/workflows/ci.yml` executa testes, compila Flutter Linux e empacota usando `scripts/package-appimage.sh`. O AppImage já inclui também os arquivos-fonte do motor Python em `usr/share/jolven-iso/engine` (não executa comandos privilegiados automaticamente). O AppImage é o formato pretendido de distribuição e será publicado automaticamente em releases marcadas com `v*` **quando o workflow passar**. A portabilidade e a execução real em múltiplas distros ainda precisam de validação; não há release pronta garantida neste estágio.
+O pipeline em `.github/workflows/ci.yml` executa testes, compila Flutter Linux e empacota usando `scripts/package-appimage.sh`. O AppImage já inclui também os arquivos-fonte do motor Python em `usr/share/jolven-iso/engine` (não executa comandos privilegiados automaticamente). O empacotamento usa `appimagetool` 1.9.1 e runtime Type 2 release 20251108, ambos baixados e **verificados por SHA-256 fixo** antes da execução. O AppImage é o formato pretendido de distribuição e será publicado automaticamente em releases marcadas com `v*` **quando o workflow passar**. A portabilidade e a execução real em múltiplas distros ainda precisam de validação; não há release pronta garantida neste estágio.
 
 ```bash
 flutter build linux --release

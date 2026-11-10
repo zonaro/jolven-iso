@@ -68,3 +68,7 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 - Workflow separado compila tarball `usr/` do Jolven a partir de SHA fixo, valida estrutura e checksum, publica artifact e o anexa às releases do Builder quando marcadas `v*`.
 - `JolvenArtifactService` consulta API pública GitHub releases do projeto, recusa URLs inesperadas, baixa tar.gz e `.sha256` pareados, exige hash exato, preenche a GUI. Checksum é integridade da publicação no GitHub, não assinatura independente de supply-chain.
 - Sem release publicada, manter modo de arquivo local e link para o Actions; não inventar URL de binário.
+
+## Supply-chain AppImage
+
+- `scripts/package-appimage.sh` usa `appimagetool` release 1.9.1 e `type2-runtime` release 20251108, com SHA-256 fixo obtido dos metadados de release GitHub. Bloqueia execução se os arquivos não corresponderem aos digests conhecidos. Evitar tags `continuous` mutáveis no CI.
