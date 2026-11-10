@@ -18,3 +18,5 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #6: catálogo DNF restrito e instalador pós-instalação manual com confirmação, sem instalação automática no primeiro boot. Pendente validar nomes de pacotes por edição e adicionar Fluxo First-boot UI/Flatpak.
 - #7: defaults reais de tema/acento via GSettings configurados na composição; export/import de configurações avançadas e secrets via keyring em primeira execução continuam pendentes.
 - #5: fallback de construção de tarball Jolven por SHA exato de commit enquanto não houver release binária verificável.
+
+- #4: adicionado teste smoke da transformação de ISO sintética no GitHub Actions; validação com ISO oficial, UEFI/BIOS, Secure Boot e instalação no disco continua pendente.

@@ -162,7 +162,7 @@ def remaster_iso(
         patched = workspace / "patched-squashfs.img"
         _run([
             "mksquashfs", str(extracted), str(patched), "-noappend",
-            "-comp", compression, "-b", str(block_size),
+            "-comp", compression, "-b", str(block_size), "-processors", "2",
         ])
         pending = workspace / "jolven-output.iso"
         _run([

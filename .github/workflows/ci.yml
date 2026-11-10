@@ -21,6 +21,19 @@ jobs:
       - name: Shell syntax validation
         run: bash -n scripts/build-jolven-archive.sh scripts/bootstrap.sh scripts/package-appimage.sh
 
+  experimental-iso-smoke:
+    name: Experimental synthetic ISO remaster smoke test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ISO utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso squashfs-tools e2fsprogs libglib2.0-bin
+      - name: Exercise ISO remaster with synthetic rootfs (not Nobara validation)
+        run: |
+          sudo env PYTHONPATH=engine python3 -m unittest discover -s engine/tests -p test_integration_remaster.py -v
+
   flutter-appimage:
     name: Build Flutter AppImage
     runs-on: ubuntu-22.04

@@ -57,6 +57,8 @@ sudo env PYTHONPATH=engine python3 -m jolven_iso.cli compose \
   --experimental --accept-unverified-provenance
 ```
 
+O CI inclui um teste de remasterização com **ISO sintética mínima**, usando xorriso/SquashFS para comprovar o fluxo de escrita e leitura. Isso **não prova** que a ISO oficial Nobara inicia ou instala corretamente.
+
 O compositor reconhece preliminarmente `LiveOS/squashfs.img` com raiz diretamente no SquashFS ou imagem ext4 aninhada `LiveOS/rootfs.img`; recusa layouts desconhecidos. Insere o tarball validado em `/usr` e registra `/usr/share/wayland-sessions/io.github.zonaro.Jolven.GameMode.desktop` (sem trocar o login padrão). Se faltar Gamescope, o processo falha em vez de prometer uma sessão utilizável. Dependências adicionais do Jolven ainda não são instaladas automaticamente; elas precisam estar presentes no sistema-base para a sessão funcionar.
 
 **Limitações críticas:** ainda não executamos o ciclo boot live → instalar → reiniciar nas cinco edições; a saída pode não ser inicializável nem persistir corretamente no sistema instalado. Secure Boot **não está validado**. Não distribuir a ISO produzida como release estável. O modo experimental aceita checksum informado pelo operador e **não** prova a procedência criptográfica da ISO. Builds oficiais futuros exigem catálogo autenticado, dependências, QA e assinatura conforme aplicável.
