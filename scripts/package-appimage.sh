@@ -19,6 +19,9 @@ fi
 rm -rf -- "$appdir"
 mkdir -p "$appdir/usr"
 cp -a "$bundle/." "$appdir/usr/"
+# Ship the audited Python engine source alongside Flutter; never call it as root implicitly.
+mkdir -p "$appdir/usr/share/jolven-iso/engine"
+cp -a engine/jolven_iso "$appdir/usr/share/jolven-iso/engine/"
 mkdir -p "$appdir/usr/share/icons/hicolor/256x256/apps"
 rsvg-convert -w 256 -h 256 assets/icons/jolven-iso.svg \
   > "$appdir/usr/share/icons/hicolor/256x256/apps/jolven-iso.png"

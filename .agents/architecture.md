@@ -39,3 +39,8 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 - `profile.py`: instala `99_jolven_iso.gschema.override` em `/usr/share/glib-2.0/schemas` e recompila schemas com GLib. Baseia-se em `theme-slug` e `theme-accent-custom` reais do Jolven; não altera usuário existente nem grava segredos. Em `Custom`, mantém tema Jolven com cor personalizada.
 - `extras.py`: prepara plano local de pacotes selecionados e script de consentimento explícito após instalar a distro. O instalador verifica a disponibilidade com `dnf repoquery` antes de instalar; não executa nada automaticamente no live boot. Flatpak e firstboot UI ainda faltam.
 - `scripts/build-jolven-archive.sh`: gera tarball de commit exato do Jolven, com SHA-256, sem sudo ou instalação host. Depende de toolchain e dependências Meson já preparadas.
+
+## Entrega do motor por plataforma
+
+- AppImage: motor Python incluído como dados em `usr/share/jolven-iso/engine`; não há auto-elevação nem alteração no host.
+- Windows: motor Python incluído em `engine/` dentro do bundle portátil/instalador. Interface nativa disponível, mas o compose requer um backend Linux/WSL2/VM, ainda sem integração de execução pela UI.

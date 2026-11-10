@@ -83,7 +83,7 @@ A publicação do tarball binário Jolven também precisa ser confirmada: o endp
 
 ### AppImage
 
-O pipeline em `.github/workflows/ci.yml` executa testes, compila Flutter Linux e empacota usando `scripts/package-appimage.sh`. O AppImage é o formato pretendido de distribuição e será publicado automaticamente em releases marcadas com `v*` **quando o workflow passar**. A portabilidade e a execução real em múltiplas distros ainda precisam de validação; não há release pronta garantida neste estágio.
+O pipeline em `.github/workflows/ci.yml` executa testes, compila Flutter Linux e empacota usando `scripts/package-appimage.sh`. O AppImage já inclui também os arquivos-fonte do motor Python em `usr/share/jolven-iso/engine` (não executa comandos privilegiados automaticamente). O AppImage é o formato pretendido de distribuição e será publicado automaticamente em releases marcadas com `v*` **quando o workflow passar**. A portabilidade e a execução real em múltiplas distros ainda precisam de validação; não há release pronta garantida neste estágio.
 
 ```bash
 flutter build linux --release
@@ -97,7 +97,7 @@ O GitHub Actions compila a interface Flutter no runner Windows e gera dois pacot
 - `Jolven-ISO-Builder-VERSAO-Windows-x64-Portable.zip`: extraia tudo e execute `jolven_iso.exe` na pasta. O EXE **não funciona isoladamente**: mantenha as DLLs e `data/` juntos.
 - `Jolven-ISO-Builder-VERSAO-Windows-x64-Setup.exe`: instalador Inno Setup por usuário, com atalho e desinstalador.
 
-Ambos incluem `.sha256`. Em um push para `main`, os arquivos são artefatos do [GitHub Actions](https://github.com/zonaro/jolven-iso/actions); em uma tag `v*`, serão anexados à release **se todos os jobs passarem**.
+Ambos incluem `.sha256`. O ZIP e o instalador também carregam o motor Python como arquivos de suporte (`engine/`), mas a execução da remasterização continua exigindo um ambiente Linux separado. Em um push para `main`, os arquivos são artefatos do [GitHub Actions](https://github.com/zonaro/jolven-iso/actions); em uma tag `v*`, serão anexados à release **se todos os jobs passarem**.
 
 Para compilar localmente, use Windows com Flutter, Visual Studio C++ Desktop e Inno Setup 6 instalado:
 

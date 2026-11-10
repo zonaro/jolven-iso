@@ -61,6 +61,8 @@ jobs:
         run: flutter build linux --release
       - name: Package AppImage
         run: bash scripts/package-appimage.sh
+      - name: Assert Python engine bundled
+        run: test -f build/appimage/AppDir/usr/share/jolven-iso/engine/jolven_iso/cli.py
       - uses: actions/upload-artifact@v4
         with:
           name: Jolven-ISO-Builder-Linux-AppImage
@@ -97,6 +99,10 @@ jobs:
       - name: Package portable ZIP and setup EXE
         shell: pwsh
         run: ./scripts/package-windows.ps1
+      - name: Assert Python engine bundled
+        shell: pwsh
+        run: |
+          if (-not (Test-Path build/windows/x64/runner/Release/engine/jolven_iso/cli.py)) { throw 'Engine absent from Windows bundle.' }
       - uses: actions/upload-artifact@v4
         with:
           name: Jolven-ISO-Builder-Windows-x64

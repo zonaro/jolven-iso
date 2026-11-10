@@ -12,6 +12,11 @@ if (-not (Test-Path -Path $executable -PathType Leaf) -or -not (Test-Path -Path 
   throw 'Flutter Windows bundle ausente ou incompleto. Rode flutter build windows --release.'
 }
 
+# Include the portable Python engine as data for future WSL2/VM orchestration.
+$engineTarget = Join-Path $bundle 'engine'
+New-Item -ItemType Directory -Force -Path $engineTarget | Out-Null
+Copy-Item -Path (Join-Path $repoRoot 'engine/jolven_iso') -Destination $engineTarget -Recurse -Force
+
 $pubspec = Get-Content (Join-Path $repoRoot 'pubspec.yaml') -Raw
 if ($pubspec -notmatch '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
   throw 'Nao foi possivel detectar a versao em pubspec.yaml.'
