@@ -31,6 +31,8 @@ class RemasterSmokeTest(unittest.TestCase):
             live_root = work / "live"
             (live_root / "usr/bin").mkdir(parents=True)
             (live_root / "usr/libexec").mkdir(parents=True)
+            (live_root / "etc").mkdir(parents=True)
+            (live_root / "etc/os-release").write_text('ID=nobara\nVERSION_ID=44\n')
             (live_root / "usr/share/glib-2.0/schemas").mkdir(parents=True)
             for name in ("gamescope", "python3"):
                 (live_root / "usr/bin" / name).write_text("#!/bin/sh\nexit 0\n")
@@ -80,6 +82,7 @@ class RemasterSmokeTest(unittest.TestCase):
                 experimental=True,
             )
             self.assertEqual(report["status"], "experimental_unverified_iso")
+            self.assertEqual(report["source_root_identity"]["distribution"], "nobara")
             self.assertEqual(report["structural_audit"]["optical_boot_images"], 1)
             self.assertFalse(report["structural_audit"]["boot_verified"])
             self.assertTrue(output.exists())

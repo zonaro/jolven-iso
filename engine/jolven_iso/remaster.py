@@ -20,6 +20,7 @@ from .overlay import install_jolven, file_sha256
 from .profile import apply_appearance
 from .extras import write_optional_extras
 from .audit import audit_iso
+from .image_identity import inspect_nobara_root, IdentityError
 
 
 class RemasterError(RuntimeError):
@@ -201,6 +202,7 @@ def remaster_iso(
         nested = extracted / "LiveOS/rootfs.img"
         if nested.is_file():
             with _mounted_ext4(nested, workspace / "mounted") as root:
+                identity = inspect_nobara_root(root)
                 _required_runtime_present(root)
                 details = install_jolven(root, jolven_archive, jolven_sha256)
                 if appearance is not None:
@@ -212,6 +214,7 @@ def remaster_iso(
                     "A direct squashfs root requires root-owned metadata. "
                     "Rootless support currently needs LiveOS/rootfs.img."
                 )
+            identity = inspect_nobara_root(extracted)
             _required_runtime_present(extracted)
             details = install_jolven(
                 extracted, jolven_archive, jolven_sha256,
@@ -270,6 +273,7 @@ def remaster_iso(
             "sha256": output_sha,
             "source_sha256": file_sha256(source),
             "jolven": details,
+            "source_root_identity": identity,
             "structural_audit": audit,
             "security": "Secure Boot compatibility NOT verified",
             "tests": "must boot and install on every Nobara edition before release",

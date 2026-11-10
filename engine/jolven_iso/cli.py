@@ -16,6 +16,7 @@ from .overlay import OverlayError
 from .profile import ProfileError
 from .extras import ExtrasError
 from .audit import audit_iso, AuditError
+from .image_identity import check_selected_edition, IdentityError
 
 EDITIONS = {"official", "gnome", "kde", "steam-htpc", "steam-handheld"}
 EXTRAS = {"sunshine", "retroarch", "uzdoom", "eden", "cemu", "openrgb"}
@@ -123,6 +124,7 @@ def plan_project(path: Path) -> dict:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise PreflightError(f"Não foi possível ler projeto JSON: {exc}") from exc
     project = validate_project(project)
+    identity = check_selected_edition(Path(project["source_iso"]).name, project["edition"])
     verification = verify_iso(Path(project["source_iso"]), project["expected_sha256"])
     return {
         "status": "preflight_only",
@@ -133,9 +135,10 @@ def plan_project(path: Path) -> dict:
         "requested_extras": sorted(set(project["extras"])),
         "appearance": project["appearance"],
         "source": verification,
+        "source_filename_identity": identity,
         "notes": [
             "O hash foi comparado com o valor fornecido pelo usuário, não autenticado via catálogo oficial.",
-            "O programa ainda não modifica nem produz imagens ISO.",
+            "A CLI experimental compose existe, mas sua saída não tem boot/instalação certificados.",
             "Credenciais não são aceitas em arquivos de projeto.",
         ],
     }
@@ -198,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (OSError, PreflightError, OverlayError, RemasterError, ProfileError, ExtrasError, AuditError) as exc:
+    except (OSError, PreflightError, OverlayError, RemasterError, ProfileError, ExtrasError, AuditError, IdentityError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 2
 

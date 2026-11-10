@@ -55,6 +55,7 @@ class CliTests(unittest.TestCase):
         result = plan_project(project_file)
         self.assertFalse(result["compose_available"])
         self.assertEqual(result["requested_extras"], ["sunshine"])
+        self.assertFalse(result["source_filename_identity"]["publisher_authenticated"])
 
 
 if __name__ == "__main__":
