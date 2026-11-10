@@ -17,7 +17,7 @@ jobs:
     name: Build verified Jolven usr/ tarball
     runs-on: ubuntu-24.04
     container:
-      image: fedora:45
+      image: fedora:44
     env:
       JOLVEN_SHA: dbac3872f85983bea2c85e6d4c69f78f0ccf2265
     steps:

@@ -16,3 +16,7 @@ Não substituir uma release do Jolven por arquivos obtidos de fontes
 desconhecidas. O artefato do Actions ainda precisa ser testado em uma
 ISO Nobara real; um build tarball bem-sucedido não garante que seus
 módulos Python e dependências executam dentro de todas as edições.
+
+## Compatibilidade Python
+
+A imagem base atual é **Nobara 44**, então o workflow de artefatos usa contêiner **Fedora 44** (não Fedora 45), para evitar que módulos Jolven sejam instalados num `python3.X/site-packages` diferente do Python do alvo. O injetor valida o diretório de versão Python no rootfs do Nobara **antes de escrever**, e recusa mismatch. Quando o Nobara atualizar de versão-base, é obrigatório ajustar o ambiente de construção e renovar o pin com testes reais.

@@ -41,6 +41,19 @@ class OverlayTests(unittest.TestCase):
         self.assertIn("Exec=/usr/bin/jolven-session", session.read_text())
         self.assertTrue((self.root / "usr/bin/jolven").exists())
 
+    def test_python_abi_match_is_required_before_writing(self):
+        entries = {
+            **self.entries,
+            "usr/lib/python3.15/site-packages/cartridges/shared.py": b"x = 1",
+        }
+        digest = make_tar(self.archive, entries)
+        with self.assertRaisesRegex(OverlayError, "Python ABI 3.15"):
+            install_jolven(self.root, self.archive, digest)
+        self.assertFalse((self.root / "usr/bin/jolven").exists())
+        (self.root / "usr/lib/python3.15").mkdir(parents=True)
+        report = install_jolven(self.root, self.archive, digest)
+        self.assertEqual(report["python_site_packages_versions"], ["3.15"])
+
     def test_wrong_hash_refuses_extraction(self):
         make_tar(self.archive, self.entries)
         with self.assertRaises(OverlayError):

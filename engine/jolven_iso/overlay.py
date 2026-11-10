@@ -145,12 +145,42 @@ def _matches_existing(target: Path, item: tarfile.TarInfo, tar: tarfile.TarFile)
     return source_hash.hexdigest() == file_sha256(target)
 
 
+
+_PYTHON_SITE = re.compile(
+    r"^usr/lib(?:64)?/python(?P<version>3\.[0-9]+)/site-packages(?:/|$)"
+)
+
+
+def _ensure_python_abi(root: Path, members: list[tarfile.TarInfo]) -> list[str]:
+    """Reject incompatible Python installation prefixes before any write."""
+    artifact_versions = {
+        match.group("version")
+        for item in members
+        if (match := _PYTHON_SITE.match(str(_safe_path(item.name)))) is not None
+    }
+    if len(artifact_versions) > 1:
+        raise OverlayError("Jolven archive contains conflicting Python versions.")
+    for version in artifact_versions:
+        installed = [
+            root / "usr/lib" / ("python" + version),
+            root / "usr/lib64" / ("python" + version),
+        ]
+        if not any(path.is_dir() and not path.is_symlink() for path in installed):
+            raise OverlayError(
+                "Jolven Python ABI " + version
+                + " is not installed in the Nobara root. "
+                "Rebuild Jolven using the target distro/Python version."
+            )
+    return sorted(artifact_versions)
+
+
 def install_jolven(root: Path, archive: Path, expected_sha: str) -> dict:
     """Stage a verified Jolven artifact. Refuse foreign file replacement."""
     root = root.resolve(strict=True)
     if not root.is_dir() or not (root / "usr").is_dir():
         raise OverlayError("Not a Linux root filesystem (usr/ missing).")
     members = inspect_archive(archive, expected_sha)
+    python_versions = _ensure_python_abi(root, members)
     session = _checked_target(root, SESSION_PATH)
     if session.exists() or session.is_symlink():
         if session.is_symlink() or session.read_text(encoding="utf-8") != SESSION:
@@ -190,6 +220,7 @@ def install_jolven(root: Path, archive: Path, expected_sha: str) -> dict:
     return {
         "jolven_archive_sha256": expected_sha.lower(),
         "installed_entries": len(members),
+        "python_site_packages_versions": python_versions,
         "jolven_session": "/" + SESSION_PATH,
         "login_manager": "GDM/SDDM via XDG wayland-sessions; autologin unchanged",
         "runtime_dependency_check": "pending system validation",
