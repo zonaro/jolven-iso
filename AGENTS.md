@@ -14,3 +14,6 @@
 
 - O comando `compose` é experimental: exige `--experimental` e `--accept-unverified-provenance`. Nunca habilite no Flutter sem boot e instalação validada em VM e dispositivo real.
 - Verifique a presença e a integridade de tarball local do Jolven; a API `releases/latest` pode estar indisponível. Não invente versão ou artefato.
+
+- O perfil de tema usa somente GSettings defaults; não preconfigure senhas/chaves em ISO, nem force alteração dos usuários após o login.
+- Extras opcionalmente solicitados usam um script pós-instalação invocado manualmente com autenticação; não habilitar serviço silencioso de instalação no boot.

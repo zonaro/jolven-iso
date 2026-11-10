@@ -15,7 +15,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .overlay import install_jolven, OverlayError, file_sha256
+from .overlay import install_jolven, file_sha256
+from .profile import apply_appearance
+from .extras import write_optional_extras
 
 
 class RemasterError(RuntimeError):
@@ -24,7 +26,7 @@ class RemasterError(RuntimeError):
 
 TOOL_NAMES = (
     "xorriso", "unsquashfs", "mksquashfs", "mount", "umount",
-    "e2fsck", "resize2fs", "truncate",
+    "e2fsck", "resize2fs", "truncate", "glib-compile-schemas",
 )
 
 
@@ -86,7 +88,7 @@ def _required_runtime_present(root: Path) -> None:
         root / "usr/bin/gamescope",
         root / "usr/bin/python3",
     ]
-    missing = [str(p.relative_to(root)) for p in required_files if not p.exists()]
+    missing = [str(p.relative_to(root)) for p in required_files if not p.exists() and not p.is_symlink()]
     if missing:
         raise RemasterError(
             "The official ISO lacks mandatory runtime executables: "
@@ -101,6 +103,8 @@ def remaster_iso(
     *,
     jolven_archive: Path,
     jolven_sha256: str,
+    appearance: dict | None = None,
+    extras: list[str] | None = None,
     experimental: bool = False,
 ) -> dict:
     """Copy and patch LiveOS/squashfs.img while replaying ISO boot metadata.
@@ -140,11 +144,17 @@ def remaster_iso(
             with _mounted_ext4(nested, workspace / "mounted") as root:
                 _required_runtime_present(root)
                 details = install_jolven(root, jolven_archive, jolven_sha256)
+                if appearance is not None:
+                    details['appearance_defaults'] = apply_appearance(root, appearance)
+                details['optional_packages'] = write_optional_extras(root, extras or [])
         elif (extracted / "usr").is_dir():
             _required_runtime_present(extracted)
             details = install_jolven(
                 extracted, jolven_archive, jolven_sha256,
             )
+            if appearance is not None:
+                details['appearance_defaults'] = apply_appearance(extracted, appearance)
+            details['optional_packages'] = write_optional_extras(extracted, extras or [])
         else:
             raise RemasterError(
                 "Unsupported Nobara LiveOS layout: no rootfs.img or usr/."

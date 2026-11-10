@@ -14,3 +14,7 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #3: parser do catálogo oficial, download retomável, checksum oficial via HTTPS; ainda faltam teste de download em rede real, persistência de catálogo e UX avançada.
 - #4/#5: CLI de remasterização e extração segura de pacote Jolven, **exige root**, tarball local e opção `--experimental`; testes unitários não substituem QA da ISO real.
 - #8: consulta/download pela interface Flutter; geração de ISO experimental deliberadamente mantida fora da UI.
+
+- #6: catálogo DNF restrito e instalador pós-instalação manual com confirmação, sem instalação automática no primeiro boot. Pendente validar nomes de pacotes por edição e adicionar Fluxo First-boot UI/Flatpak.
+- #7: defaults reais de tema/acento via GSettings configurados na composição; export/import de configurações avançadas e secrets via keyring em primeira execução continuam pendentes.
+- #5: fallback de construção de tarball Jolven por SHA exato de commit enquanto não houver release binária verificável.

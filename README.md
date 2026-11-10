@@ -61,6 +61,22 @@ O compositor reconhece preliminarmente `LiveOS/squashfs.img` com raiz diretament
 
 **Limitações críticas:** ainda não executamos o ciclo boot live → instalar → reiniciar nas cinco edições; a saída pode não ser inicializável nem persistir corretamente no sistema instalado. Secure Boot **não está validado**. Não distribuir a ISO produzida como release estável. O modo experimental aceita checksum informado pelo operador e **não** prova a procedência criptográfica da ISO. Builds oficiais futuros exigem catálogo autenticado, dependências, QA e assinatura conforme aplicável.
 
+Para criar o tarball Jolven a partir de um commit conhecido sem instalar nada no computador de construção (exige toolchain Meson e dependências de desenvolvimento previamente instaladas):
+
+```bash
+bash scripts/build-jolven-archive.sh <SHA_GIT_COMPLETO_DO_JOLVEN> ./dist
+```
+
+A saída `jolven-linux-x86_64-<SHA>.tar.gz` e seu arquivo `.sha256` servem como entradas do compositor experimental. Não há download de binários arbitrários nem execução automática de scripts via curl.
+
+As preferências de tema/cor são aplicadas como **defaults system-wide GSettings** em `/usr/share/glib-2.0/schemas/99_jolven_iso.gschema.override`, sem sobrescrever os ajustes feitos por cada usuário. Os extras solicitados pelo gerador entram num plano local de pacotes. Após instalar o Nobara no disco e obter conexão à internet, o usuário decide se quer executá-lo:
+
+```bash
+sudo /usr/libexec/jolven-iso-install-extras
+```
+
+O script consulta DNF/repositórios habilitados e só instala nomes de pacotes conhecidos e disponíveis, mediante confirmação explícita. **Não há autoinstalação no live boot.** Emuladores são aplicativos independentes; nada é embutido no Jolven. A instalação opcional automatizada via first-boot com UI e integração Flatpak continua planejada (#6).
+
 A publicação do tarball binário Jolven também precisa ser confirmada: o endpoint `releases/latest` do projeto não retornou um artefato verificável na inspeção atual; por isso o protótipo exige um arquivo local com hash conhecido.
 
 ### AppImage

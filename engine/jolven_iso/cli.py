@@ -13,6 +13,8 @@ from pathlib import Path
 
 from .remaster import RemasterError, prerequisites, remaster_iso
 from .overlay import OverlayError
+from .profile import ProfileError
+from .extras import ExtrasError
 
 EDITIONS = {"official", "gnome", "kde", "steam-htpc", "steam-handheld"}
 EXTRAS = {"sunshine", "retroarch", "uzdoom", "eden", "cemu", "openrgb"}
@@ -181,11 +183,13 @@ def main(argv: list[str] | None = None) -> int:
                 Path(project["source"]["path"]), options.output,
                 jolven_archive=options.jolven_archive,
                 jolven_sha256=options.jolven_sha256,
+                appearance=project['appearance'],
+                extras=project['requested_extras'],
                 experimental=True,
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (OSError, PreflightError, OverlayError, RemasterError) as exc:
+    except (OSError, PreflightError, OverlayError, RemasterError, ProfileError, ExtrasError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 2
 

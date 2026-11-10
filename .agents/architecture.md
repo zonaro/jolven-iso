@@ -33,3 +33,9 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 - `engine/jolven_iso/remaster.py`: com root explícito, clona `LiveOS/squashfs.img`, edita o rootfs em cópia e tenta reproduzir boot metadata via `xorriso -boot_image any replay`.
 - Não existe evidência de que ISOs reais das cinco edições resultam instaláveis; não habilitar na interface nem entregar como estável. Faltam dependências completas via DNF, first-boot opcional, compatibilidade Secure Boot e QA físico/VM.
 - A origem de ISO local é verificada por hash fornecido; apenas downloads iniciados pelo catálogo oficial possuem checksum recuperado da página oficial. HTTPS não equivale a verificação de assinatura criptográfica.
+
+## Perfis e extras (protótipos M3)
+
+- `profile.py`: instala `99_jolven_iso.gschema.override` em `/usr/share/glib-2.0/schemas` e recompila schemas com GLib. Baseia-se em `theme-slug` e `theme-accent-custom` reais do Jolven; não altera usuário existente nem grava segredos. Em `Custom`, mantém tema Jolven com cor personalizada.
+- `extras.py`: prepara plano local de pacotes selecionados e script de consentimento explícito após instalar a distro. O instalador verifica a disponibilidade com `dnf repoquery` antes de instalar; não executa nada automaticamente no live boot. Flatpak e firstboot UI ainda faltam.
+- `scripts/build-jolven-archive.sh`: gera tarball de commit exato do Jolven, com SHA-256, sem sudo ou instalação host. Depende de toolchain e dependências Meson já preparadas.
