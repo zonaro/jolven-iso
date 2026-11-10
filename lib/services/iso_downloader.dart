@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'nobara_catalog.dart';
+import 'iso_signature.dart';
 
 class DownloadCancelled implements Exception {
   const DownloadCancelled();
@@ -85,6 +86,10 @@ class IsoDownloader {
         await partial.delete();
         throw const FormatException(
           'SHA-256 divergente. Download descartado por segurança.');
+      }
+      if (!await IsoSignature.isIso9660(partial)) {
+        await partial.delete();
+        throw const FormatException('Download não contém uma imagem ISO-9660 válida.');
       }
       if (await destination.exists()) {
         throw const FileSystemException('Destino já existe. Escolha outro nome.');

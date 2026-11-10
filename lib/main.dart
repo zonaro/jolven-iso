@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'models/iso_project.dart';
 import 'services/nobara_catalog.dart';
 import 'services/iso_downloader.dart';
+import 'services/iso_signature.dart';
 
 void main() => runApp(const JolvenIsoApp());
 
@@ -52,6 +53,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
   List<NobaraIso> _catalog = [];
   NobaraIso? _selectedOnline;
   double? _downloadProgress;
+  DateTime _lastProgress = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const _options = <String, String>{
     'sunshine': 'Sunshine',
@@ -134,6 +136,12 @@ class _BuilderScreenState extends State<BuilderScreen> {
         expectedSha256: expected,
         onProgress: (received, total) {
           if (!mounted) return;
+          final now = DateTime.now();
+          if (received != total &&
+              now.difference(_lastProgress).inMilliseconds < 250) {
+            return;
+          }
+          _lastProgress = now;
           setState(() {
             _downloadProgress = total == null || total == 0
                 ? null : received / total;
@@ -179,6 +187,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
       final file = File(path);
       if (!await file.exists() || !path.toLowerCase().endsWith('.iso')) {
         throw const FormatException('Selecione um arquivo .iso existente.');
+      }
+      if (!await IsoSignature.isIso9660(file)) {
+        throw const FormatException('Arquivo não possui assinatura ISO-9660.');
       }
       final digest = await sha256.bind(file.openRead()).first;
       if (!mounted) return;
