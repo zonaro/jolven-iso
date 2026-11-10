@@ -50,7 +50,11 @@ class RemasterSmokeTest(unittest.TestCase):
             run("mksquashfs", str(live_root), str(iso_root / "squashfs.img"),
                 "-noappend", "-comp", "gzip", "-processors", "2")
             source = work / "source.iso"
+            # Synthetic El Torito catalog verifies boot metadata replay.
+            # These dummy bytes are NOT executable bootloader code.
+            (work / "iso_root" / "dummy-boot.img").write_bytes(bytes(2048))
             run("xorriso", "-as", "mkisofs", "-o", str(source),
+                "-b", "dummy-boot.img", "-no-emul-boot",
                 str(work / "iso_root"))
 
             archive_path = work / "jolven.tar.gz"
@@ -76,6 +80,8 @@ class RemasterSmokeTest(unittest.TestCase):
                 experimental=True,
             )
             self.assertEqual(report["status"], "experimental_unverified_iso")
+            self.assertEqual(report["structural_audit"]["optical_boot_images"], 1)
+            self.assertFalse(report["structural_audit"]["boot_verified"])
             self.assertTrue(output.exists())
             saved = work / "saved-squash.img"
             run("xorriso", "-osirrox", "on", "-indev", str(output),

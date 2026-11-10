@@ -15,6 +15,7 @@ from .remaster import RemasterError, prerequisites, remaster_iso
 from .overlay import OverlayError
 from .profile import ProfileError
 from .extras import ExtrasError
+from .audit import audit_iso, AuditError
 
 EDITIONS = {"official", "gnome", "kde", "steam-htpc", "steam-handheld"}
 EXTRAS = {"sunshine", "retroarch", "uzdoom", "eden", "cemu", "openrgb"}
@@ -151,6 +152,9 @@ def main(argv: list[str] | None = None) -> int:
     plan = commands.add_parser("plan", help="Validar JSON e gerar plano somente-leitura")
     plan.add_argument("--project", type=Path, required=True)
     commands.add_parser("requirements", help="Requisitos do compositor Linux experimental")
+    audit = commands.add_parser("audit", help="Auditar metadados ópticos de ISOs")
+    audit.add_argument("--source", type=Path, required=True)
+    audit.add_argument("--output", type=Path, required=True)
     compose = commands.add_parser("compose", help="Gerar ISO experimental sem validação de boot")
     compose.add_argument("--project", type=Path, required=True)
     compose.add_argument("--jolven-archive", type=Path, required=True)
@@ -171,6 +175,8 @@ def main(argv: list[str] | None = None) -> int:
             result = plan_project(options.project)
         elif options.command == "requirements":
             result = prerequisites()
+        elif options.command == "audit":
+            result = audit_iso(options.source, options.output)
         else:
             if not options.accept_unverified_provenance:
                 raise PreflightError(
@@ -192,7 +198,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
-    except (OSError, PreflightError, OverlayError, RemasterError, ProfileError, ExtrasError) as exc:
+    except (OSError, PreflightError, OverlayError, RemasterError, ProfileError, ExtrasError, AuditError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 2
 

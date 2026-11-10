@@ -19,6 +19,7 @@ from pathlib import Path
 from .overlay import install_jolven, file_sha256
 from .profile import apply_appearance
 from .extras import write_optional_extras
+from .audit import audit_iso
 
 
 class RemasterError(RuntimeError):
@@ -244,6 +245,7 @@ def remaster_iso(
             stream.seek(16 * 2048 + 1)
             if stream.read(5) != b"CD001":
                 raise RemasterError("Output is missing ISO-9660 signature.")
+        audit = audit_iso(source, pending)
         output_sha = file_sha256(pending)
         if os.stat(workspace).st_dev == os.stat(destination.parent).st_dev:
             os.replace(pending, destination)
@@ -268,6 +270,7 @@ def remaster_iso(
             "sha256": output_sha,
             "source_sha256": file_sha256(source),
             "jolven": details,
+            "structural_audit": audit,
             "security": "Secure Boot compatibility NOT verified",
             "tests": "must boot and install on every Nobara edition before release",
         }

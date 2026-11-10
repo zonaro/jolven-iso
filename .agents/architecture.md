@@ -57,3 +57,8 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 - `extras.py` gera plano JSON permitido, helper root exclusivo DNF/Flatpak, desktop launcher e autostart GNOME/KDE. Primeiro login verifica que não está no live ISO e abre Zenity/KDialog quando disponível, sem pacotes instalados sem consentimento explícito.
 - O usuário escolhe o que instalar, Polkit solicita autenticação apenas após confirmação; se o pacote não existir no DNF/Flathub configurados, mostra indisponível. Não existe auto-adição de repositórios.
 - Steam-HTPC/Handheld preservam autologin e não recebem o autostart GNOME/KDE; configuração manual pelo desktop, pois o overlay não pressupõe um compositor/greeter específico.
+
+## Auditoria estrutural de imagens (issue #11)
+
+- `audit.py` compara descritor ISO-9660, volume id, presença/contagem El Torito e marcadores MBR/GPT reportados pelo `xorriso`. Falha na auditoria impede publicação do arquivo resultante.
+- O teste sintético ganhou catálogo El Torito com bytes fictícios: confirma replay de metadados, não bootloader executável. Ainda falta QA com as cinco ISOs oficiais e boot/instalação real em VM.

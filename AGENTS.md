@@ -20,3 +20,5 @@
 
 - O modo rootless usa guestmount/guestunmount FUSE; não executa código do AppImage como root. WSL2 requer FUSE e workspace Linux, e a compatibilidade real ainda precisa ser testada.
 - Validar os três builds Linux AppImage/Windows EXE+ZIP/macOS .app ZIP no CI; confirmar execução real antes de release estável.
+
+- Nunca interpretar o resultado de `audit` como certificação de boot: o comando testa apenas metadados ópticos e volume ID. A saída continua experimental até instalar e usar no Nobara real.
