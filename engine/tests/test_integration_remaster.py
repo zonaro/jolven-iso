@@ -31,6 +31,9 @@ class RemasterSmokeTest(unittest.TestCase):
             live_root = work / "live"
             (live_root / "usr/bin").mkdir(parents=True)
             (live_root / "usr/libexec").mkdir(parents=True)
+            (live_root / "usr/lib64").mkdir(parents=True)
+            (live_root / "usr/lib64/libgtk-4.so.1").write_bytes(b"stub")
+            (live_root / "usr/lib64/libadwaita-1.so.0").write_bytes(b"stub")
             (live_root / "etc").mkdir(parents=True)
             (live_root / "etc/os-release").write_text('ID=nobara\nVERSION_ID=44\n')
             (live_root / "usr/share/glib-2.0/schemas").mkdir(parents=True)

@@ -42,6 +42,19 @@ class RemasterTests(unittest.TestCase):
                     self.assertEqual(commands[-1], "guestmount")
             self.assertEqual(commands[-1], "guestunmount")
 
+    def test_missing_runtime_libraries_block_broken_jolven_session(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "usr/bin").mkdir(parents=True)
+            (root / "usr/bin/gamescope").write_text("#!/bin/sh")
+            (root / "usr/bin/python3").write_text("#!/bin/sh")
+            with self.assertRaisesRegex(RemasterError, "libgtk-4.so.1"):
+                _required_runtime_present(root)
+            (root / "usr/lib64").mkdir(parents=True)
+            (root / "usr/lib64/libgtk-4.so.1").write_bytes(b"fake")
+            (root / "usr/lib64/libadwaita-1.so.0").write_bytes(b"fake")
+            _required_runtime_present(root)
+
     def test_experimental_flag_required_before_any_filesystem_operation(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

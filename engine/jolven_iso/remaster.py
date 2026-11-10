@@ -141,11 +141,21 @@ def _required_runtime_present(root: Path) -> None:
         root / "usr/bin/python3",
     ]
     missing = [str(p.relative_to(root)) for p in required_files if not p.exists() and not p.is_symlink()]
+    runtime_libraries = ("libgtk-4.so.1", "libadwaita-1.so.0")
+    library_roots = (root / "usr/lib64", root / "usr/lib")
+    for library in runtime_libraries:
+        if not any(
+            candidate.exists() or candidate.is_symlink()
+            for folder in library_roots
+            for candidate in folder.glob(library + "*")
+        ):
+            missing.append("shared library " + library)
     if missing:
         raise RemasterError(
-            "The official ISO lacks mandatory runtime executables: "
+            "The Nobara ISO lacks mandatory Jolven runtime dependencies: "
             + ", ".join(missing)
-            + ". Dependency installation via Nobara DNF is not implemented yet."
+            + ". Install these in a verified system image before distributing "
+              "it; automatic DNF installation into the ISO is not certified."
         )
 
 
