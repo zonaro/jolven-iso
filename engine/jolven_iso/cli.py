@@ -156,6 +156,8 @@ def main(argv: list[str] | None = None) -> int:
     compose.add_argument("--jolven-archive", type=Path, required=True)
     compose.add_argument("--jolven-sha256", required=True)
     compose.add_argument("--output", type=Path, required=True)
+    compose.add_argument("--workspace-dir", type=Path,
+      help="Linux filesystem workspace, e.g. /tmp on WSL2")
     compose.add_argument("--experimental", action="store_true")
     compose.add_argument("--accept-unverified-provenance", action="store_true",
       help="Confirmo que obtive ISO e checksum de uma fonte oficial confiável")
@@ -185,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
                 jolven_sha256=options.jolven_sha256,
                 appearance=project['appearance'],
                 extras=project['requested_extras'],
+                workspace_dir=options.workspace_dir,
                 experimental=True,
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))

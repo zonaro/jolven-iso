@@ -10,6 +10,7 @@ import 'models/iso_project.dart';
 import 'services/nobara_catalog.dart';
 import 'services/iso_downloader.dart';
 import 'services/iso_signature.dart';
+import 'services/engine_bridge.dart';
 
 void main() => runApp(const JolvenIsoApp());
 
@@ -47,9 +48,13 @@ class _BuilderScreenState extends State<BuilderScreen> {
   bool _working = false;
   String _status = 'Selecione uma ISO oficial do Nobara para começar.';
   final _expectedHash = TextEditingController();
+  final _jolvenArchiveSha = TextEditingController();
+  String? _jolvenArchivePath;
+  bool _confirmExperimental = false;
   final _extras = <String>{};
   final _catalogService = NobaraCatalog();
   final _downloader = IsoDownloader();
+  final _engine = EngineBridge();
   List<NobaraIso> _catalog = [];
   NobaraIso? _selectedOnline;
   double? _downloadProgress;
@@ -67,7 +72,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
   @override
   void dispose() {
     _downloader.cancel();
+    _engine.cancelReadOnlyCommand();
     _expectedHash.dispose();
+    _jolvenArchiveSha.dispose();
     super.dispose();
   }
 
@@ -209,12 +216,98 @@ class _BuilderScreenState extends State<BuilderScreen> {
       IsoProject.sha256Pattern.hasMatch(_expectedHash.text.trim()) &&
       _actualHash!.toLowerCase() == _expectedHash.text.trim().toLowerCase();
 
-  Future<void> _saveProject() async {
-    if (!_verified || _isoPath == null) {
-      setState(() => _status = 'Informe o SHA-256 oficial e confira a ISO primeiro.');
+
+
+  Future<void> _chooseJolvenArchive() async {
+    final file = await openFile(
+      acceptedTypeGroups: [
+        const XTypeGroup(
+          label: 'Pacote Jolven (.tar.gz)',
+          extensions: ['gz', 'tgz'],
+        ),
+      ],
+    );
+    if (!mounted || file == null) return;
+    setState(() {
+      _jolvenArchivePath = file.path;
+      _jolvenArchiveSha.clear();
+      _status = 'Pacote escolhido. Informe o SHA-256 de uma fonte confiável.';
+    });
+  }
+
+  Future<void> _composeExperimental() async {
+    if (_working || !_verified || _jolvenArchivePath == null ||
+        !_confirmExperimental ||
+        !IsoProject.sha256Pattern.hasMatch(_jolvenArchiveSha.text.trim())) {
       return;
     }
-    final project = IsoProject(
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Gerar ISO experimental?'),
+        content: const Text(
+          'Esta imagem ainda NÃO foi validada para inicialização, '
+          'instalação no disco, NVIDIA ou Secure Boot. '
+          'Use apenas em máquina virtual ou ambiente de testes. '
+          'O sistema oficial não será modificado. '
+          'O processo exige libguestfs/FUSE no Linux ou WSL2, '
+          'e nunca solicitará privilégios de administrador automaticamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Gerar para testes'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+    final destination = await getSaveLocation(
+      suggestedName: 'Nobara-Jolven-experimental.iso',
+      acceptedTypeGroups: [
+        const XTypeGroup(label: 'Imagem ISO', extensions: ['iso']),
+      ],
+    );
+    if (!mounted || destination == null) return;
+    setState(() {
+      _working = true;
+      _status = 'Construindo ISO experimental. Não feche o programa; '
+          'a preparação pode demorar vários minutos.';
+    });
+    try {
+      final result = await _engine.compose(
+        project: _currentProject(),
+        jolvenArchive: _jolvenArchivePath!,
+        jolvenSha256: _jolvenArchiveSha.text.trim(),
+        outputIso: destination.path,
+      );
+      if (!mounted) return;
+      final data = result.json;
+      setState(() {
+        _status = result.ok
+            ? 'ISO experimental criada: ${destination.path}. '
+              'SHA-256: ${data?['sha256'] ?? 'veja o relatório do motor'}. '
+              'Não use em produção antes de testar boot e instalação.'
+            : 'Falha na geração experimental: ${result.message}';
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status = 'Falha na geração experimental: $error');
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  IsoProject _currentProject() {
+    if (!_verified || _isoPath == null || _actualHash == null) {
+      throw const FormatException('Verifique a ISO e o SHA-256 primeiro.');
+    }
+    return IsoProject(
       edition: _edition,
       sourceIso: _isoPath!,
       sourceSha256: _actualHash!,
@@ -223,6 +316,62 @@ class _BuilderScreenState extends State<BuilderScreen> {
       theme: _themeName,
       accentHex: _accentHex,
     );
+  }
+
+  Future<void> _engineRequirements() async {
+    if (_working) return;
+    setState(() {
+      _working = true;
+      _status = 'Verificando requisitos do motor Python no sistema...';
+    });
+    try {
+      final result = await _engine.requirements();
+      if (!mounted) return;
+      final data = result.json;
+      setState(() {
+        _status = result.ok && data != null
+            ? 'Backend: ${data['mount_backend']}. '
+              'Pronto para composição experimental: '
+              '${data['ready_for_experimental_compose']}. '
+              'Ferramentas ausentes: '
+              '${(data['missing_tools'] as List<dynamic>?)?.join(', ') ?? '?'}'
+            : 'Backend não disponível: ${result.message}';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _status = 'Diagnóstico falhou: $error');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _enginePlan() async {
+    if (_working || !_verified) return;
+    setState(() {
+      _working = true;
+      _status = 'Validando projeto e ISO pelo motor Python...';
+    });
+    try {
+      final result = await _engine.plan(_currentProject());
+      if (!mounted) return;
+      setState(() {
+        _status = result.ok
+            ? 'Pré-verificação aprovada. SHA-256 e layout básico confirmados; '
+              'a procedência não está assinada e o boot ainda não foi testado.'
+            : 'Pré-verificação falhou: ${result.message}';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _status = 'Pré-verificação falhou: $error');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _saveProject() async {
+    if (!_verified || _isoPath == null) {
+      setState(() => _status = 'Informe o SHA-256 oficial e confira a ISO primeiro.');
+      return;
+    }
+    final project = _currentProject();
     try {
       final location = await getSaveLocation(
         suggestedName: 'jolven-iso-project.json',
@@ -420,10 +569,65 @@ class _BuilderScreenState extends State<BuilderScreen> {
                 icon: const Icon(Icons.save_alt),
                 label: const Text('Exportar projeto JSON'),
               ),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: _working ? null : _engineRequirements,
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: const Text('Verificar motor de ISO'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: matched && !_working ? _enginePlan : null,
+                  icon: const Icon(Icons.playlist_add_check),
+                  label: const Text('Validar projeto no motor'),
+                ),
+              ]),
+              const SizedBox(height: 24),
+              _section('5 · ISO experimental (Linux/WSL2)'),
+              const Text(
+                'A geração é opcional, sem sudo automático, e exige '
+                'libguestfs/FUSE. Nenhuma imagem final foi certificada '
+                'para instalação. Selecione um pacote Jolven confiável.',
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _working ? null : _chooseJolvenArchive,
+                icon: const Icon(Icons.folder_zip_outlined),
+                label: const Text('Selecionar pacote Jolven .tar.gz'),
+              ),
               const SizedBox(height: 8),
-              const OutlinedButton(
-                onPressed: null,
-                child: Text('Gerar ISO (em desenvolvimento)'),
+              Text(_jolvenArchivePath ?? 'Nenhum pacote selecionado.',
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _jolvenArchiveSha,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'SHA-256 do pacote Jolven',
+                  border: OutlineInputBorder(),
+                  helperText: 'Obtenha o hash de fonte confiável e cole aqui.',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              CheckboxListTile(
+                value: _confirmExperimental,
+                onChanged: _working ? null : (value) =>
+                    setState(() => _confirmExperimental = value == true),
+                title: const Text('Entendo que a ISO não foi certificada'),
+                subtitle: const Text(
+                  'É apenas para testes. Não substitua seu sistema principal.',
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+              FilledButton.icon(
+                onPressed: matched && !_working &&
+                    _confirmExperimental && _jolvenArchivePath != null &&
+                    IsoProject.sha256Pattern.hasMatch(
+                      _jolvenArchiveSha.text.trim(),
+                    )
+                    ? _composeExperimental : null,
+                icon: const Icon(Icons.disc_full_outlined),
+                label: const Text('Gerar ISO experimental'),
               ),
             ],
           ),

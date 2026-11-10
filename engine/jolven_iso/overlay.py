@@ -1,13 +1,16 @@
-"""Offline, strictly scoped Jolven installation into a mounted Linux root.
+"""Offline, guarded Jolven installation into a disposable Linux root filesystem.
 
-The caller must verify the source Nobara ISO and must provide a Jolven archive
-with an independently known SHA-256. No network, DNF, or shell here.
+The caller must verify Nobara's ISO and the Jolven artifact SHA-256 first.
+No network, shell execution or package manager is involved. Symlinks in
+Jolven's Meson-produced usr/ tree are supported only when they stay in /usr.
 """
 from __future__ import annotations
 
 import hashlib
-import io
 import os
+import posixpath
+import re
+import stat
 import tarfile
 from pathlib import Path, PurePosixPath
 
@@ -17,6 +20,7 @@ Comment=Console-style gaming session powered by Jolven
 Exec=/usr/bin/jolven-session
 TryExec=/usr/bin/jolven-session
 Type=Application
+DesktopNames=Jolven
 X-Jolven-Managed=true
 """
 
@@ -31,101 +35,158 @@ MAX_MEMBERS = 100_000
 
 
 class OverlayError(ValueError):
-    """Invalid or unsafe Jolven release archive."""
+    """Invalid Jolven artifact or unsafe destination root."""
 
 
 def file_sha256(path: Path) -> str:
-    h = hashlib.sha256()
+    digest = hashlib.sha256()
     with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _safe_path(name: str) -> PurePosixPath:
     if not name or name.startswith("/") or "\x00" in name:
         raise OverlayError("Absolute/empty path in Jolven archive.")
-    p = PurePosixPath(name)
-    if ".." in p.parts or not p.parts or p.parts[0] != "usr":
-        raise OverlayError("Archive entry escapes the usr/ prefix.")
-    return p
+    path = PurePosixPath(name)
+    if ".." in path.parts or not path.parts or path.parts[0] != "usr":
+        raise OverlayError("Archive entry escapes usr/.")
+    return path
+
+
+def _safe_link(member: tarfile.TarInfo) -> None:
+    """A link may be relative or absolute but must point inside /usr."""
+    if not member.issym():
+        return
+    link = member.linkname
+    if not link or "\x00" in link or "\\" in link:
+        raise OverlayError("Invalid link target in Jolven archive.")
+    path = _safe_path(member.name)
+    target = posixpath.normpath(
+        link.lstrip("/") if link.startswith("/")
+        else posixpath.join(str(path.parent), link)
+    )
+    if not (target == "usr" or target.startswith("usr/")):
+        raise OverlayError("Jolven archive link escapes /usr.")
 
 
 def inspect_archive(archive: Path, expected_sha: str) -> list[tarfile.TarInfo]:
     if not archive.is_file() or archive.stat().st_size > MAX_ARCHIVE_BYTES:
-        raise OverlayError("Jolven archive absent or too large.")
-    if len(expected_sha) != 64 or any(c not in "0123456789abcdef" for c in expected_sha.lower()):
-        raise OverlayError("Invalid Jolven archive SHA-256.")
+        raise OverlayError("Jolven artifact absent or too large.")
+    if not re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha):
+        raise OverlayError("Invalid SHA-256.")
     if file_sha256(archive) != expected_sha.lower():
-        raise OverlayError("Jolven release checksum mismatch.")
+        raise OverlayError("Jolven artifact SHA-256 mismatch.")
     try:
         with tarfile.open(archive, "r:gz") as tar:
             members = tar.getmembers()
             if len(members) > MAX_MEMBERS:
-                raise OverlayError("Jolven archive has too many entries.")
+                raise OverlayError("Excessive archive entries.")
+            names: set[str] = set()
+            links: set[str] = set()
             total = 0
-            names = set()
             for member in members:
                 path = _safe_path(member.name)
-                if not (member.isfile() or member.isdir()):
-                    raise OverlayError("Links, devices and special files are not allowed.")
+                # Allow relative symlinks to other /usr paths, not hardlinks,
+                # devices, FIFOs, xattrs or special filesystem nodes.
+                if not (member.isfile() or member.isdir() or member.issym()):
+                    raise OverlayError("Hardlinks/devices/special files not allowed.")
                 if member.mode & 0o7000:
-                    raise OverlayError("Setuid/setgid/sticky entries are forbidden.")
-                if str(path) in names:
-                    raise OverlayError("Duplicate archive path.")
-                names.add(str(path))
+                    raise OverlayError("Setuid/setgid/sticky entries forbidden.")
+                key = str(path)
+                if key in names:
+                    raise OverlayError("Duplicate archive entry.")
+                names.add(key)
+                if member.issym():
+                    _safe_link(member)
+                    links.add(key)
                 total += member.size
                 if total > MAX_ARCHIVE_BYTES:
-                    raise OverlayError("Jolven archive extraction exceeds size limit.")
+                    raise OverlayError("Artifact expands beyond size limit.")
+            for entry in names:
+                parts = PurePosixPath(entry).parts
+                if any("/".join(parts[:i]) in links for i in range(1, len(parts))):
+                    raise OverlayError("Files cannot be nested under archive symlinks.")
             if not REQUIRED.issubset(names):
-                raise OverlayError("Jolven release lacks required system executables.")
+                raise OverlayError("Jolven archive missing required executables.")
+            for member in members:
+                if str(_safe_path(member.name)) in REQUIRED and not member.isfile():
+                    raise OverlayError("Required executables must be regular files.")
             return members
     except (tarfile.TarError, OSError) as exc:
-        raise OverlayError("Invalid Jolven tar.gz release.") from exc
+        raise OverlayError("Invalid Jolven tar.gz archive.") from exc
 
 
-def _no_symlink_parents(target: Path, root: Path) -> None:
-    """Refuse an existing symlink anywhere under root, even from ISO content."""
-    relative = target.relative_to(root)
+def _checked_target(root: Path, name: str) -> Path:
+    path = _safe_path(name)
+    target = root.joinpath(*path.parts)
     current = root
-    for piece in relative.parts:
-        current = current / piece
+    for part in path.parts:
+        current = current / part
         if current.is_symlink():
-            raise OverlayError("Cannot write through symlink in root filesystem.")
+            raise OverlayError("Refusing to write through filesystem symlink.")
+    return target
+
+
+def _matches_existing(target: Path, item: tarfile.TarInfo, tar: tarfile.TarFile) -> bool:
+    if item.isdir():
+        return target.is_dir() and not target.is_symlink()
+    if item.issym():
+        return target.is_symlink() and os.readlink(target) == item.linkname
+    if not target.is_file() or target.is_symlink():
+        return False
+    stream = tar.extractfile(item)
+    if stream is None:
+        return False
+    source_hash = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+        source_hash.update(chunk)
+    return source_hash.hexdigest() == file_sha256(target)
 
 
 def install_jolven(root: Path, archive: Path, expected_sha: str) -> dict:
-    """Inject files. Call on a disposable, mounted/staged *copy* only."""
+    """Stage a verified Jolven artifact. Refuse foreign file replacement."""
     root = root.resolve(strict=True)
     if not root.is_dir() or not (root / "usr").is_dir():
         raise OverlayError("Not a Linux root filesystem (usr/ missing).")
     members = inspect_archive(archive, expected_sha)
-    for item in members:
-        target = root.joinpath(*_safe_path(item.name).parts)
-        _no_symlink_parents(target, root)
-        if target.exists() and not target.is_dir() and item.isdir():
-            raise OverlayError("Archive directory would replace an existing file.")
-    session = root / SESSION_PATH
-    _no_symlink_parents(session, root)
-    if session.exists() and session.read_text(encoding="utf-8") != SESSION:
-        raise OverlayError("Cannot replace a foreign Wayland session definition.")
+    session = _checked_target(root, SESSION_PATH)
+    if session.exists() or session.is_symlink():
+        if session.is_symlink() or session.read_text(encoding="utf-8") != SESSION:
+            raise OverlayError("Refusing to replace foreign Wayland session.")
     with tarfile.open(archive, "r:gz") as tar:
-        for member in members:
-            target = root.joinpath(*_safe_path(member.name).parts)
-            if member.isdir():
+        # All collisions and paths checked before ANY write to avoid
+        # partial changes on predictable filesystem conflicts.
+        for item in members:
+            target = _checked_target(root, item.name)
+            if target.exists() or target.is_symlink():
+                if not _matches_existing(target, item, tar):
+                    raise OverlayError(f"Existing foreign file conflicts: {item.name}")
+        for item in members:
+            target = _checked_target(root, item.name)
+            if item.isdir():
                 target.mkdir(mode=0o755, parents=True, exist_ok=True)
-            else:
-                target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
-                stream = tar.extractfile(member)
-                if stream is None:
-                    raise OverlayError("Unable to read Jolven release entry.")
-                with target.open("wb") as output:
-                    for block in iter(lambda: stream.read(1024 * 1024), b""):
-                        output.write(block)
-                os.chmod(target, member.mode & 0o755 or 0o644)
+                continue
+            target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+            if target.exists() or target.is_symlink():
+                continue
+            if item.issym():
+                os.symlink(item.linkname, target)
+                continue
+            input_file = tar.extractfile(item)
+            if input_file is None:
+                raise OverlayError("Cannot read archive entry.")
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as output:
+                for block in iter(lambda: input_file.read(1024 * 1024), b""):
+                    output.write(block)
+            os.chmod(target, item.mode & 0o777)
     session.parent.mkdir(parents=True, exist_ok=True)
-    session.write_text(SESSION, encoding="utf-8")
-    os.chmod(session, 0o644)
+    if not session.exists():
+        fd = os.open(session, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
+            out.write(SESSION)
     return {
         "jolven_archive_sha256": expected_sha.lower(),
         "installed_entries": len(members),

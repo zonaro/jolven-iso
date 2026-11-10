@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from .overlay import install_jolven, file_sha256
@@ -44,14 +45,31 @@ def _run(args: list[str], *, accepted: tuple[int, ...] = (0,)) -> str:
 
 
 def prerequisites() -> dict:
-    """Show exactly which requirements are missing, without modifying host."""
+    """Read-only diagnostics for root loop-mount or non-root libguestfs/FUSE."""
     missing = [name for name in TOOL_NAMES if shutil.which(name) is None]
+    root_mode = platform.system() == "Linux" and os.geteuid() == 0
+    user_mount_tools = ("guestmount", "guestunmount")
+    missing_guest = [
+        name for name in user_mount_tools if shutil.which(name) is None
+    ]
+    fuse_device = os.path.exists("/dev/fuse") and os.access(
+        "/dev/fuse", os.R_OK | os.W_OK
+    )
+    rootless = platform.system() == "Linux" and not missing_guest and fuse_device
     return {
         "platform": platform.system(),
-        "must_be_root": True,
+        "must_be_root": not rootless,
+        "mount_backend": "loop-root" if root_mode else (
+            "libguestfs-fuse" if rootless else "unavailable"
+        ),
         "missing_tools": missing,
+        "missing_rootless_tools": missing_guest,
+        "fuse_device_accessible": fuse_device,
+        "rootless_ext4_available": rootless,
         "ready_for_experimental_compose":
-            platform.system() == "Linux" and os.geteuid() == 0 and not missing,
+            platform.system() == "Linux"
+            and not missing
+            and (root_mode or rootless),
     }
 
 
@@ -69,18 +87,50 @@ def _compression(squash: Path) -> tuple[str, int]:
 
 @contextlib.contextmanager
 def _mounted_ext4(image: Path, mountpoint: Path):
-    """Only on a disposable copy. Caller must already be privileged."""
-    # Repair and expand a *copy* to accommodate Jolven binaries and metadata.
+    """Mount a disposable ext4 image, using libguestfs/FUSE without root.
+
+    Unmount and wait for libguestfs worker to exit before packing the image.
+    Never operate on an active virtual machine disk image.
+    """
     _run(["e2fsck", "-f", "-p", str(image)], accepted=(0, 1))
     _run(["truncate", "-s", "+1024M", str(image)])
     _run(["resize2fs", str(image)])
     mountpoint.mkdir(parents=True)
-    _run(["mount", "-o", "loop,rw,nosuid,nodev", str(image), str(mountpoint)])
+    if os.geteuid() == 0:
+        _run(["mount", "-o", "loop,rw,nosuid,nodev", str(image), str(mountpoint)])
+        try:
+            yield mountpoint
+        finally:
+            _run(["umount", str(mountpoint)])
+        return
+
+    worker_file = mountpoint.parent / "guestmount.pid"
+    _run([
+        "guestmount", "--format=raw", "--rw", "-a", str(image),
+        "-m", "/dev/sda", "-o", f"uid={os.getuid()},gid={os.getgid()}",
+        "--pid-file", str(worker_file), str(mountpoint),
+    ])
     try:
         yield mountpoint
     finally:
-        _run(["umount", str(mountpoint)])
-
+        try:
+            _run(["guestunmount", str(mountpoint)])
+        finally:
+            if worker_file.exists():
+                try:
+                    worker_pid = int(worker_file.read_text().strip())
+                except ValueError as exc:
+                    raise RemasterError("Invalid guestmount worker PID") from exc
+                for _ in range(75):
+                    try:
+                        os.kill(worker_pid, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.2)
+                else:
+                    raise RemasterError(
+                        "libguestfs worker did not exit; image cannot be reused safely."
+                    )
 
 def _required_runtime_present(root: Path) -> None:
     """M1/M2 fail closed instead of promising a session without Gamescope."""
@@ -105,6 +155,7 @@ def remaster_iso(
     jolven_sha256: str,
     appearance: dict | None = None,
     extras: list[str] | None = None,
+    workspace_dir: Path | None = None,
     experimental: bool = False,
 ) -> dict:
     """Copy and patch LiveOS/squashfs.img while replaying ISO boot metadata.
@@ -124,11 +175,18 @@ def remaster_iso(
         raise RemasterError("Output must have a .iso extension.")
     if not destination.parent.is_dir():
         raise RemasterError("Destination directory is missing.")
-    free = shutil.disk_usage(destination.parent).free
+    staging_parent = workspace_dir or destination.parent
+    if not staging_parent.is_dir():
+        raise RemasterError("Workspace directory does not exist.")
+    free = shutil.disk_usage(staging_parent).free
     if free < source.stat().st_size * 3 + 2 * 1024**3:
         raise RemasterError("Insufficient disk space for temporary image.")
+    if staging_parent != destination.parent and (
+        shutil.disk_usage(destination.parent).free < source.stat().st_size + 1024**3
+    ):
+        raise RemasterError("Insufficient disk space in output directory.")
     with tempfile.TemporaryDirectory(
-        prefix="jolven-remaster-", dir=destination.parent
+        prefix="jolven-remaster-", dir=staging_parent
     ) as temp:
         workspace = Path(temp)
         squash = workspace / "squashfs.img"
@@ -148,6 +206,11 @@ def remaster_iso(
                     details['appearance_defaults'] = apply_appearance(root, appearance)
                 details['optional_packages'] = write_optional_extras(root, extras or [])
         elif (extracted / "usr").is_dir():
+            if os.geteuid() != 0:
+                raise RemasterError(
+                    "A direct squashfs root requires root-owned metadata. "
+                    "Rootless support currently needs LiveOS/rootfs.img."
+                )
             _required_runtime_present(extracted)
             details = install_jolven(
                 extracted, jolven_archive, jolven_sha256,
@@ -160,10 +223,15 @@ def remaster_iso(
                 "Unsupported Nobara LiveOS layout: no rootfs.img or usr/."
             )
         patched = workspace / "patched-squashfs.img"
-        _run([
+        squash_args = [
             "mksquashfs", str(extracted), str(patched), "-noappend",
             "-comp", compression, "-b", str(block_size), "-processors", "2",
-        ])
+        ]
+        if os.geteuid() != 0:
+            # The outer squashfs contains the ext4 image. Rootless extraction
+            # maps ownership to the host user; restore root metadata.
+            squash_args.append("-all-root")
+        _run(squash_args)
         pending = workspace / "jolven-output.iso"
         _run([
             "xorriso", "-indev", str(source), "-outdev", str(pending),
@@ -177,7 +245,23 @@ def remaster_iso(
             if stream.read(5) != b"CD001":
                 raise RemasterError("Output is missing ISO-9660 signature.")
         output_sha = file_sha256(pending)
-        os.replace(pending, destination)
+        if os.stat(workspace).st_dev == os.stat(destination.parent).st_dev:
+            os.replace(pending, destination)
+        else:
+            # WSL2: work on Linux ext4, then atomically publish on /mnt/c.
+            partial_dest = destination.with_name(
+                f".{destination.name}.partial.{os.getpid()}"
+            )
+            try:
+                with pending.open("rb") as source_stream, partial_dest.open("xb") as target_stream:
+                    shutil.copyfileobj(source_stream, target_stream, 1024 * 1024)
+                    target_stream.flush()
+                    os.fsync(target_stream.fileno())
+                if destination.exists():
+                    raise RemasterError("Output created concurrently; refusing overwrite.")
+                os.replace(partial_dest, destination)
+            finally:
+                partial_dest.unlink(missing_ok=True)
         return {
             "status": "experimental_unverified_iso",
             "output": str(destination),

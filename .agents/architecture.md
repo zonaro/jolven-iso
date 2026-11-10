@@ -44,3 +44,10 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 
 - AppImage: motor Python incluído como dados em `usr/share/jolven-iso/engine`; não há auto-elevação nem alteração no host.
 - Windows: motor Python incluído em `engine/` dentro do bundle portátil/instalador. Interface nativa disponível, mas o compose requer um backend Linux/WSL2/VM, ainda sem integração de execução pela UI.
+
+## Rootless e interface experimental
+
+- `EngineBridge` invoca CLI Python por `Process.start` sem shell; Windows usa `wsl.exe --exec` e `wslpath` para mapear caminhos. Diagnóstico e plano são read-only. `compose` exige confirmação de riscos e libguestfs FUSE sem root; não aceita `pkexec/sudo` na interface.
+- Para rootfs.ext4 aninhado, o compositor usa `guestmount --format=raw` e `guestunmount`, aguardando o encerramento do processo FUSE. A CLI mantém fallback root loop mount explícito; squashfs direto não recebe operação rootless.
+- No WSL2, usar `/tmp` para área de trabalho e copiar o resultado para `/mnt/c/...` de forma controlada e com arquivo temporário de destino. Não confiar que WSL2 possui FUSE; validar requisitos antes da execução.
+- Mac `.app` em ZIP com assinatura ad hoc e backend incluído apenas como código fonte: integração VM, notarização e QA pendentes.

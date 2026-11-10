@@ -4,7 +4,7 @@
 
 Projeto independente do [Jolven](https://github.com/zonaro/jolven) e do [Nobara](https://nobaraproject.org/). Não é uma ISO oficial ou endossada pelo Nobara.
 
-> **Estado: M1/M2 experimental.** A interface Flutter pode consultar o catálogo oficial, baixar e conferir ISO, e exportar um projeto. Há também um protótipo de injeção/remasterização **somente pela CLI Linux**, ainda sem testes reais de boot/instalação. Não anunciar ISOs geradas por este protótipo como prontas.
+> **Estado: protótipo experimental, não certificado.** A interface Flutter consulta o catálogo oficial, baixa/verifica ISO, exporta projeto, confere o motor e pode tentar **gerar uma ISO experimental em Linux/WSL2 com libguestfs/FUSE, sem root**. A CLI Linux também oferece um fallback de loop mount privilegiado. Não há validação de boot, instalador, GDM/SDDM, NVIDIA ou Secure Boot nas cinco edições: não anuncie a ISO como uma release pronta.
 
 ## Escopo
 
@@ -12,8 +12,8 @@ Projeto independente do [Jolven](https://github.com/zonaro/jolven) e do [Nobara]
 - Saída planejada: ISO derivada da ISO oficial, com Jolven instalado system-wide e **Jolven Session** selecionável no gerenciador de login sem remover as outras sessões.
 - Extras planejados: Sunshine, RetroArch, UZDoom, Eden, Cemu e OpenRGB mediante disponibilidade comprovada no DNF/Flatpak e consentimento no first boot.
 - Configuração: preferências não sensíveis, tema e cor. Tokens, senhas e chaves **não são incorporados à ISO**; configuração segura ocorre após login.
-- Interface multiplataforma **Flutter** (Linux, Windows e macOS). O remasterizador, quando implementado, exigirá ambiente Linux (nativo, WSL2 ou VM).
-- Distribuição do app: **AppImage no Linux** e **ZIP portátil + instalador EXE no Windows x64**, produzidos pelo CI. macOS permanece planejado.
+- Interface multiplataforma **Flutter** (Linux, Windows e macOS). O remasterizador experimental exige ambiente Linux (nativo ou WSL2 com FUSE). macOS depende de futura integração com VM Linux.
+- Distribuição do app: **AppImage no Linux**, **ZIP portátil + instalador EXE no Windows x64** e **app macOS em ZIP**, produzidos pelo CI. O ZIP macOS não é notarizado.
 
 ## Desenvolvimento
 
@@ -42,20 +42,22 @@ O comando `plan` **apenas valida e descreve a operação**; não modifica imagen
 
 ### Injeção e remasterização EXPERIMENTAIS (Linux)
 
-Este estágio usa `xorriso`, `unsquashfs`, `mksquashfs`, `mount`, `umount`, `e2fsck` e `resize2fs`, com permissões de root **explicitamente fornecidas** pelo operador. **Não é acessível pelo botão “Gerar ISO” do Flutter.**
+Este estágio usa `xorriso`, `unsquashfs`, `mksquashfs`, `e2fsck`, `resize2fs` e `glib-compile-schemas`. Se a ISO possui ext4 aninhado em `LiveOS/rootfs.img`, o backend também pode usar **`guestmount`/`guestunmount` e `/dev/fuse` sem root**. No modo privilegiado da CLI, usa `mount`/`umount` somente após invocação explícita. A interface GUI só permite o modo sem root e pede confirmação experimental.
 
 Pré-condições: baixar ISO oficial do Nobara e conferir seu checksum, obter um arquivo Jolven `usr/` tar.gz de uma versão conhecida e seu SHA-256 independente, reservar no mínimo três vezes o tamanho da ISO + 2 GiB livres. O compositor **nunca** altera a ISO de entrada: gera um novo arquivo e recusa sobrescrita.
 
 ```bash
 PYTHONPATH=engine python3 -m jolven_iso.cli requirements
 PYTHONPATH=engine python3 -m jolven_iso.cli plan --project projeto.json
-sudo env PYTHONPATH=engine python3 -m jolven_iso.cli compose \
+PYTHONPATH=engine python3 -m jolven_iso.cli compose \
   --project projeto.json \
   --jolven-archive /caminho/jolven-linux-x86_64.tar.gz \
   --jolven-sha256 <HASH_CONHECIDO_DO_JOLVEN> \
   --output /caminho/jolven-nobara-experimental.iso \
   --experimental --accept-unverified-provenance
 ```
+
+Se a ISO tiver raiz SquashFS direta (sem ext4 aninhado), a CLI ainda requer root explicitamente fornecido. A GUI não chama `sudo` ou `pkexec`. No **Windows/WSL2**, o workspace usa `/tmp` no Linux e copia a imagem final para a pasta escolhida no Windows. Confira previamente o espaço em disco e o acesso ao FUSE. Diagnóstico: `python3 -m jolven_iso.cli requirements`.
 
 O CI inclui um teste de remasterização com **ISO sintética mínima**, usando xorriso/SquashFS para comprovar o fluxo de escrita e leitura. Isso **não prova** que a ISO oficial Nobara inicia ou instala corretamente.
 
@@ -80,6 +82,10 @@ sudo /usr/libexec/jolven-iso-install-extras
 O script consulta DNF/repositórios habilitados e só instala nomes de pacotes conhecidos e disponíveis, mediante confirmação explícita. **Não há autoinstalação no live boot.** Emuladores são aplicativos independentes; nada é embutido no Jolven. A instalação opcional automatizada via first-boot com UI e integração Flatpak continua planejada (#6).
 
 A publicação do tarball binário Jolven também precisa ser confirmada: o endpoint `releases/latest` do projeto não retornou um artefato verificável na inspeção atual; por isso o protótipo exige um arquivo local com hash conhecido.
+
+### Motor integrado à interface
+
+A tela permite **Verificar motor de ISO**, **Validar projeto no motor** (Linux nativo ou WSL2) e **Gerar ISO experimental** após selecionar um tarball Jolven e informar seu SHA-256 conhecido. O Flutter nunca eleva privilégios por conta própria; recusa a composição se libguestfs/FUSE não estiver disponível ou se o usuário não confirmar explicitamente os riscos. O macOS oferece somente a UI e exportação, até a integração com VM.
 
 ### AppImage
 
@@ -110,7 +116,11 @@ flutter build windows --release
 ./scripts/package-windows.ps1
 ```
 
-Pacotes ainda **não são assinados digitalmente**: o Windows pode exibir alertas SmartScreen. O aplicativo requer o runtime Visual C++ adequado; o instalador atual não o provisiona automaticamente. Uma release estável exige testes reais de instalação e inicialização em Windows 10/11. A interface Windows **ainda não gera ISO**: futuramente o motor de remasterização precisará de Linux via WSL2 ou VM (issue #10).
+Pacotes ainda **não são assinados digitalmente**: o Windows pode exibir alertas SmartScreen. O aplicativo requer o runtime Visual C++ adequado; o instalador atual não o provisiona automaticamente. Uma release estável exige testes reais de instalação e inicialização em Windows 10/11. A GUI Windows agora tenta usar **WSL2** para `requirements`, `plan` e composição experimental sem root. Exige distribuição WSL2 com Python 3, FUSE/libguestfs e ferramentas Linux instaladas; o WSL2 pode não disponibilizar esses recursos no ambiente do usuário. Se indisponíveis, apresenta erro sem alterar o sistema. Uma ISO oficial certificada ainda não foi gerada.
+
+### macOS (experimental)
+
+O workflow `flutter-macos` gera `Jolven-ISO-Builder-VERSAO-macOS-ARQUITETURA.zip` com um aplicativo `.app` e o código do backend como recurso. A assinatura é **ad hoc**, sem certificado Developer ID, notarização ou teste em dispositivos reais; pode haver alerta do Gatekeeper. A composição de ISO no macOS ainda depende de uma futura integração com uma VM Linux.
 
 ## Segurança e limitações
 

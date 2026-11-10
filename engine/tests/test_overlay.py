@@ -57,6 +57,64 @@ class OverlayTests(unittest.TestCase):
         with self.assertRaises(OverlayError):
             install_jolven(self.root, self.archive, digest)
 
+    def test_relative_symlink_within_usr_allowed(self):
+        with tarfile.open(self.archive, "w:gz") as tar:
+            for name, data in self.entries.items():
+                info = tarfile.TarInfo(name)
+                info.mode = 0o755
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            info = tarfile.TarInfo("usr/bin/jolven-alias")
+            info.type = tarfile.SYMTYPE
+            info.linkname = "jolven"
+            tar.addfile(info)
+        digest = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        install_jolven(self.root, self.archive, digest)
+        self.assertTrue((self.root / "usr/bin/jolven-alias").is_symlink())
+        self.assertEqual((self.root / "usr/bin/jolven-alias").readlink(), Path("jolven"))
+
+    def test_absolute_link_outside_usr_refused(self):
+        with tarfile.open(self.archive, "w:gz") as tar:
+            for name, data in self.entries.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            link = tarfile.TarInfo("usr/bin/escape")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "/etc/shadow"
+            tar.addfile(link)
+        digest = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        with self.assertRaises(OverlayError):
+            install_jolven(self.root, self.archive, digest)
+        self.assertFalse((self.root / "usr/bin/jolven").exists())
+
+    def test_archive_cannot_write_through_own_symlinks(self):
+        with tarfile.open(self.archive, "w:gz") as tar:
+            for name, data in self.entries.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            link = tarfile.TarInfo("usr/share/alias")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "../bin"
+            tar.addfile(link)
+            nested = tarfile.TarInfo("usr/share/alias/evil")
+            nested.size = 4
+            tar.addfile(nested, io.BytesIO(b"evil"))
+        digest = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        with self.assertRaises(OverlayError):
+            install_jolven(self.root, self.archive, digest)
+
+    def test_foreign_file_is_preserved_without_partial_install(self):
+        (self.root / "usr/bin").mkdir(parents=True)
+        existing = self.root / "usr/bin/jolven"
+        existing.write_text("another application")
+        digest = make_tar(self.archive, self.entries)
+        with self.assertRaises(OverlayError):
+            install_jolven(self.root, self.archive, digest)
+        self.assertEqual(existing.read_text(), "another application")
+        self.assertFalse((self.root / "usr/bin/jolven-session").exists())
+
     def test_foreign_session_not_overwritten(self):
         session = self.root / SESSION_PATH
         session.parent.mkdir(parents=True)
