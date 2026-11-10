@@ -26,6 +26,28 @@ void main() {
     expect(roundTrip.hashMatches, true);
   });
 
+  test('nome oficial não pode contradizer edição selecionada', () {
+    expect(
+      IsoProject.filenameMatchesEdition(
+        r'C:\Downloads\Nobara-44-GNOME-2026-08-28.iso',
+        NobaraEdition.kde,
+      ),
+      isFalse,
+    );
+    expect(
+      IsoProject.filenameMatchesEdition(
+        '/tmp/Nobara-44-GNOME-2026-08-28.iso',
+        NobaraEdition.gnome,
+      ),
+      isTrue,
+    );
+    expect(
+      IsoProject.filenameMatchesEdition('/tmp/arquivo-renomeado.iso',
+          NobaraEdition.gnome),
+      isTrue,
+    );
+  });
+
   test('não aceita checksum divergente', () {
     final project = IsoProject(
       edition: NobaraEdition.kde,

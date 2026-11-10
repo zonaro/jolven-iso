@@ -38,6 +38,25 @@ class IsoProject {
     'openrgb',
   };
 
+  /// Published filenames encode an edition; avoid a contradictory selection.
+  /// Local renamed files still require a staged root identity check.
+  static bool filenameMatchesEdition(String filepath, NobaraEdition edition) {
+    final name = filepath.replaceAll('\\', '/').split('/').last;
+    final match = RegExp(
+      r'^Nobara-[0-9]+-(Official|GNOME|KDE|Steam-HTPC|Steam-Handheld)-'
+      r'[0-9]{4}-[0-9]{2}-[0-9]{2}\.iso$',
+    ).firstMatch(name);
+    if (match == null) return true;
+    const labels = {
+      NobaraEdition.official: 'Official',
+      NobaraEdition.gnome: 'GNOME',
+      NobaraEdition.kde: 'KDE',
+      NobaraEdition.steamHtpc: 'Steam-HTPC',
+      NobaraEdition.steamHandheld: 'Steam-Handheld',
+    };
+    return match.group(1) == labels[edition];
+  }
+
   static final sha256Pattern = RegExp(r'^[a-fA-F0-9]{64}$');
   static final colorPattern = RegExp(r'^#[a-fA-F0-9]{6}$');
 
@@ -86,6 +105,7 @@ class IsoProject {
       accentHex: appearance['accent_hex'] as String,
     );
     if (project.sourceIso.isEmpty ||
+        !filenameMatchesEdition(project.sourceIso, project.edition) ||
         !project.hashMatches ||
         !colorPattern.hasMatch(project.accentHex) ||
         extras.any((item) => !knownExtras.contains(item))) {

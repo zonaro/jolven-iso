@@ -215,6 +215,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
   }
 
   bool get _verified =>
+      _isoPath != null &&
+      IsoProject.filenameMatchesEdition(_isoPath!, _edition) &&
       _actualHash != null &&
       IsoProject.sha256Pattern.hasMatch(_expectedHash.text.trim()) &&
       _actualHash!.toLowerCase() == _expectedHash.text.trim().toLowerCase();
@@ -491,11 +493,15 @@ class _BuilderScreenState extends State<BuilderScreen> {
                       child: Text('Nobara ${edition.label}'),
                     ),
                 ],
-                onChanged: (value) {
+                onChanged: _working ? null : (value) {
                   if (value != null) {
                     setState(() {
                       _edition = value;
                       _selectedOnline = _catalog.where((iso) => iso.edition == value).firstOrNull;
+                      if (_isoPath != null &&
+                          !IsoProject.filenameMatchesEdition(_isoPath!, value)) {
+                        _status = 'A ISO selecionada pertence a outra edição do Nobara. Selecione a imagem correta.';
+                      }
                     });
                   }
                 },
