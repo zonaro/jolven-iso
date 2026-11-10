@@ -27,3 +27,5 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #6: adicionado first-run consentido GNOME/KDE via Zenity/KDialog e opções DNF/Flathub, sem executar em live ISO nem alterar autologin Steam; ainda falta QA em Nobara real e melhores explicações de disponibilidade.
 
 - #11: a auditoria estrutural PVD/El Torito/MBR/GPT agora bloqueia saída inconsistente; teste sintético inclui catálogo El Torito. Não substitui boot, instalação ou testes de GPU.
+
+- #11: adicionado roteiro manual `docs/qa-nobara.md` e launcher VM isolado `scripts/qa-nobara-vm.sh`; evidências reais por edição seguem obrigatórias.

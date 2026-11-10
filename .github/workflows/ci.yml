@@ -19,7 +19,7 @@ jobs:
       - name: Python unit tests
         run: python3 -m unittest discover -s engine/tests -v
       - name: Shell syntax validation
-        run: bash -n scripts/build-jolven-archive.sh scripts/bootstrap.sh scripts/package-appimage.sh scripts/package-macos.sh
+        run: bash -n scripts/build-jolven-archive.sh scripts/bootstrap.sh scripts/package-appimage.sh scripts/package-macos.sh scripts/qa-nobara-vm.sh
 
   experimental-iso-smoke:
     name: Experimental synthetic ISO remaster smoke test

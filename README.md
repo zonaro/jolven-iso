@@ -130,6 +130,11 @@ O workflow `flutter-macos` gera `Jolven-ISO-Builder-VERSAO-macOS-ARQUITETURA.zip
 - Jogos/ROMs e emuladores continuam aplicativos independentes; Jolven não embute RetroArch.
 - Edições Steam possuem autologin peculiar: preservar configuração original e adicionar opção Jolven somente quando testada.
 
+
+## Validar antes de instalar
+
+Use o roteiro [QA das cinco edições Nobara](docs/qa-nobara.md) e o launcher de máquina virtual `scripts/qa-nobara-vm.sh`, que cria apenas um disco QEMU virtual descartável. Testar boot, instalação, logout para o gerenciador de login e GPUs reais **ainda é obrigatório**. Não substitua seu Fedora/Nobara principal por uma ISO experimental.
+
 ## Roadmap
 
 Veja [issues](https://github.com/zonaro/jolven-iso/issues) e [.agents/roadmap.md](.agents/roadmap.md). O trabalho é intencionalmente separado do repositório principal Jolven.
