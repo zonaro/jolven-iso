@@ -51,3 +51,9 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 - Para rootfs.ext4 aninhado, o compositor usa `guestmount --format=raw` e `guestunmount`, aguardando o encerramento do processo FUSE. A CLI mantém fallback root loop mount explícito; squashfs direto não recebe operação rootless.
 - No WSL2, usar `/tmp` para área de trabalho e copiar o resultado para `/mnt/c/...` de forma controlada e com arquivo temporário de destino. Não confiar que WSL2 possui FUSE; validar requisitos antes da execução.
 - Mac `.app` em ZIP com assinatura ad hoc e backend incluído apenas como código fonte: integração VM, notarização e QA pendentes.
+
+## Setup inicial opcional, consentimento e emuladores
+
+- `extras.py` gera plano JSON permitido, helper root exclusivo DNF/Flatpak, desktop launcher e autostart GNOME/KDE. Primeiro login verifica que não está no live ISO e abre Zenity/KDialog quando disponível, sem pacotes instalados sem consentimento explícito.
+- O usuário escolhe o que instalar, Polkit solicita autenticação apenas após confirmação; se o pacote não existir no DNF/Flathub configurados, mostra indisponível. Não existe auto-adição de repositórios.
+- Steam-HTPC/Handheld preservam autologin e não recebem o autostart GNOME/KDE; configuração manual pelo desktop, pois o overlay não pressupõe um compositor/greeter específico.

@@ -89,6 +89,10 @@ class RemasterSmokeTest(unittest.TestCase):
                              / "99_jolven_iso.gschema.override").is_file())
             self.assertTrue((unpacked / "usr/share/jolven-iso"
                              / "optional-packages.json").is_file())
+            self.assertTrue((unpacked / "etc/xdg/autostart"
+                             / "jolven-iso-setup.desktop").is_file())
+            self.assertTrue((unpacked / "usr/libexec"
+                             / "jolven-iso-first-run").is_file())
 
 
 if __name__ == "__main__":

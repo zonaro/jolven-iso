@@ -23,3 +23,5 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 
 - #10: bridge Flutter/Python para diagnósticos, planos e composição experimental Linux/WSL2 usando libguestfs/FUSE; macOS ZIP da UI, mas VM ainda ausente.
 - #11: testes existentes são sintéticos; habilitar validação oficial por edição e obter evidências reais de boot e instalação antes de completar a milestone.
+
+- #6: adicionado first-run consentido GNOME/KDE via Zenity/KDialog e opções DNF/Flathub, sem executar em live ISO nem alterar autologin Steam; ainda falta QA em Nobara real e melhores explicações de disponibilidade.

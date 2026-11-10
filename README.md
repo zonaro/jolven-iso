@@ -79,7 +79,7 @@ As preferências de tema/cor são aplicadas como **defaults system-wide GSetting
 sudo /usr/libexec/jolven-iso-install-extras
 ```
 
-O script consulta DNF/repositórios habilitados e só instala nomes de pacotes conhecidos e disponíveis, mediante confirmação explícita. **Não há autoinstalação no live boot.** Emuladores são aplicativos independentes; nada é embutido no Jolven. A instalação opcional automatizada via first-boot com UI e integração Flatpak continua planejada (#6).
+O sistema agora inclui uma **tela de consentimento no primeiro login GNOME/KDE**, usando Zenity ou KDialog se disponíveis: após instalar no disco, o usuário escolhe instalar os apps selecionados ou deixar para depois. A autenticação administrativa é pedida pelo Polkit **somente após aceitar**. O script de instalação verifica nomes permitidos no DNF e, quando indisponíveis, verifica os IDs explicitamente mapeados no Flathub já habilitado; não adiciona repositórios arbitrários. O primeiro login na ISO *live* nunca dispara instalação. Nas edições Steam-HTPC/Handheld, o autologin permanece intacto: executar manualmente pelo menu do desktop ou comando acima. A instalação precisa de internet e poderá indicar pacote indisponível. O comportamento ainda necessita de QA por edição.
 
 A publicação do tarball binário Jolven também precisa ser confirmada: o endpoint `releases/latest` do projeto não retornou um artefato verificável na inspeção atual; por isso o protótipo exige um arquivo local com hash conhecido.
 
