@@ -152,6 +152,9 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+    concurrency:
+      group: jolven-iso-release-${{ github.ref }}
+      cancel-in-progress: false
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -162,5 +165,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          prerelease: ${{ contains(github.ref_name, 'preview') || contains(github.ref_name, 'beta') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

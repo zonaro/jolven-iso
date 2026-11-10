@@ -11,6 +11,7 @@ import 'services/nobara_catalog.dart';
 import 'services/iso_downloader.dart';
 import 'services/iso_signature.dart';
 import 'services/engine_bridge.dart';
+import 'services/jolven_artifact_service.dart';
 
 void main() => runApp(const JolvenIsoApp());
 
@@ -55,6 +56,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
   final _catalogService = NobaraCatalog();
   final _downloader = IsoDownloader();
   final _engine = EngineBridge();
+  final _jolvenArtifacts = JolvenArtifactService();
+  double? _jolvenProgress;
   List<NobaraIso> _catalog = [];
   NobaraIso? _selectedOnline;
   double? _downloadProgress;
@@ -217,6 +220,73 @@ class _BuilderScreenState extends State<BuilderScreen> {
       _actualHash!.toLowerCase() == _expectedHash.text.trim().toLowerCase();
 
 
+
+
+  Future<void> _downloadJolvenRelease() async {
+    if (_working) return;
+    setState(() {
+      _working = true;
+      _jolvenProgress = null;
+      _status = 'Consultando pacote Jolven publicado nas releases do Builder...';
+    });
+    try {
+      final release = await _jolvenArtifacts.latest();
+      final expected = await _jolvenArtifacts.expectedSha256(release);
+      if (!mounted) return;
+      final destination = await getSaveLocation(
+        suggestedName: release.name,
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'Pacote Jolven', extensions: ['gz']),
+        ],
+      );
+      if (!mounted || destination == null) return;
+      _lastProgress = DateTime.fromMillisecondsSinceEpoch(0);
+      final hash = await _jolvenArtifacts.download(
+        release: release,
+        destination: File(destination.path),
+        expectedSha256: expected,
+        onProgress: (received, total) {
+          if (!mounted) return;
+          final now = DateTime.now();
+          if (received != total &&
+              now.difference(_lastProgress).inMilliseconds < 250) {
+            return;
+          }
+          _lastProgress = now;
+          setState(() {
+            _jolvenProgress = total == null || total == 0
+                ? null : received / total;
+            _status = 'Baixando Jolven: ${received ~/ (1024 * 1024)} MiB...';
+          });
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _jolvenArchivePath = destination.path;
+        _jolvenArchiveSha.text = hash;
+        _jolvenProgress = 1;
+        _status = 'Pacote Jolven ${release.version} baixado e verificado.';
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _status =
+            'Pacote automático indisponível: $error. '
+            'Use um arquivo local ou consulte o GitHub Actions.');
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _openJolvenArtifacts() async {
+    final url = Uri.parse(
+      'https://github.com/zonaro/jolven-iso/actions/workflows/jolven-artifact.yml',
+    );
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      setState(() => _status = 'Não foi possível abrir o workflow Jolven.');
+    }
+  }
 
   Future<void> _chooseJolvenArchive() async {
     final file = await openFile(
@@ -590,11 +660,27 @@ class _BuilderScreenState extends State<BuilderScreen> {
                 'para instalação. Selecione um pacote Jolven confiável.',
               ),
               const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: _working ? null : _chooseJolvenArchive,
-                icon: const Icon(Icons.folder_zip_outlined),
-                label: const Text('Selecionar pacote Jolven .tar.gz'),
-              ),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: _working ? null : _chooseJolvenArchive,
+                  icon: const Icon(Icons.folder_zip_outlined),
+                  label: const Text('Selecionar pacote local'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: _working ? null : _downloadJolvenRelease,
+                  icon: const Icon(Icons.download_outlined),
+                  label: const Text('Baixar Jolven da release'),
+                ),
+                TextButton.icon(
+                  onPressed: _openJolvenArtifacts,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Ver artefatos do CI'),
+                ),
+              ]),
+              if (_jolvenProgress != null) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: _jolvenProgress),
+              ],
               const SizedBox(height: 8),
               Text(_jolvenArchivePath ?? 'Nenhum pacote selecionado.',
                   maxLines: 2, overflow: TextOverflow.ellipsis),

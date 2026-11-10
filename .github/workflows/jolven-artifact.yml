@@ -3,6 +3,8 @@ name: Build pinned Jolven artifact for ISO injection
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    tags: ['v*']
     paths:
       - .github/workflows/jolven-artifact.yml
       - scripts/build-jolven-archive.sh
@@ -51,3 +53,25 @@ jobs:
             dist/jolven-linux-*.tar.gz
             dist/jolven-linux-*.tar.gz.sha256
           if-no-files-found: error
+
+  release-jolven:
+    name: Attach pinned Jolven tarball to tagged release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [jolven-artifact]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: jolven-iso-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Jolven-Pinned-Linux-x86_64-Artifact
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256
+          prerelease: ${{ contains(github.ref_name, 'preview') || contains(github.ref_name, 'beta') }}

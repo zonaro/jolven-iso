@@ -31,3 +31,5 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #11: adicionado roteiro manual `docs/qa-nobara.md` e launcher VM isolado `scripts/qa-nobara-vm.sh`; evidências reais por edição seguem obrigatórias.
 
 - #5: workflow de artefato Jolven separado, compilando código upstream por commit imutável em Fedora e verificando tarball `usr/` + SHA-256. O arquivo fica no Actions; automação para buscá-lo diretamente pela GUI ainda pendente.
+
+- #5/#8: integração do botão para obter tarball Jolven de releases com SHA-256 do GitHub. Pipeline separado compila upstream no Fedora e anexa artefatos a tags. Ainda falta validar pacote dentro de cada edição Nobara.
