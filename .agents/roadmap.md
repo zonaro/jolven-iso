@@ -37,3 +37,7 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #9: eliminada execução de appimagetool de branch `continuous` sem hash; passamos a pinagem por versão + SHA-256 do packager e runtime para build do AppImage.
 
 - Segurança: a pré-verificação agora barra filename com edição oficial divergente e o compositor recusa raiz sem `ID=nobara` ou `VERSION_ID` suportado. A proteção é de identidade, não de assinatura de lançamento.
+
+- #5: o injetor verifica a versão do diretório Python dos módulos Jolven e recusa ABI incompatível antes da extração. O artifact é compilado em Fedora 44 para acompanhar Nobara 44. O compose agora verifica GTK4/libadwaita e Gamescope para evitar sessão não inicializável por dependências básicas ausentes.
+- #7/#12: a instalação de GSettings não aceita symlinks nas pastas de schema; teste específico evita escrita em caminhos do host fora do rootfs.
+- Bloqueio ainda aberto: não foi possível obter/instalar as cinco ISOs oficiais Nobara e testá-las em VM/hardware NVIDIA neste ambiente; **não fechar #4/#5/#11 sem logs de boot e instalação**.
