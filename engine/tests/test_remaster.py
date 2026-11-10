@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from jolven_iso.remaster import (
-    RemasterError, _mounted_ext4, prerequisites, remaster_iso,
+    RemasterError, _mounted_ext4, _required_runtime_present, prerequisites, remaster_iso,
 )
 
 
