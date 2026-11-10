@@ -35,3 +35,5 @@ M1 **não** contém remasterização pronta. A função principal é conferir IS
 - #5/#8: integração do botão para obter tarball Jolven de releases com SHA-256 do GitHub. Pipeline separado compila upstream no Fedora e anexa artefatos a tags. Ainda falta validar pacote dentro de cada edição Nobara.
 
 - #9: eliminada execução de appimagetool de branch `continuous` sem hash; passamos a pinagem por versão + SHA-256 do packager e runtime para build do AppImage.
+
+- Segurança: a pré-verificação agora barra filename com edição oficial divergente e o compositor recusa raiz sem `ID=nobara` ou `VERSION_ID` suportado. A proteção é de identidade, não de assinatura de lançamento.

@@ -478,8 +478,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   style: TextStyle(fontSize: 27, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               const Text(
-                'M1 · Pré-verificação e exportação do projeto. '
-                'A injeção do Jolven e a geração de ISO estão em desenvolvimento.',
+                'Personalize a ISO oficial do Nobara e prepare o Jolven. '
+                'A geração de ISO ainda é experimental: exige validação em máquina virtual e não é recomendada para instalação principal.',
               ),
               const SizedBox(height: 24),
               _section('1 · Imagem base'),

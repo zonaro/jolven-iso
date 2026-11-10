@@ -72,3 +72,7 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 ## Supply-chain AppImage
 
 - `scripts/package-appimage.sh` usa `appimagetool` release 1.9.1 e `type2-runtime` release 20251108, com SHA-256 fixo obtido dos metadados de release GitHub. Bloqueia execução se os arquivos não corresponderem aos digests conhecidos. Evitar tags `continuous` mutáveis no CI.
+
+## Verificação de identidade de imagem
+
+O módulo `engine/jolven_iso/image_identity.py` verifica o par edição/nome da ISO e, antes de qualquer escrita no rootfs extraído, exige `/etc/os-release` com `ID=nobara` e `VERSION_ID>=44`. Ele não garante autenticidade criptográfica da imagem, que depende de origem e checksum oficial. A UI repete a checagem de edição para impedir erro operacional cedo.

@@ -63,6 +63,10 @@ O compositor roda uma **auditoria estrutural antes de publicar a ISO**: compara 
 
 O compositor reconhece preliminarmente `LiveOS/squashfs.img` com raiz diretamente no SquashFS ou imagem ext4 aninhada `LiveOS/rootfs.img`; recusa layouts desconhecidos. Insere o tarball validado em `/usr` e registra `/usr/share/wayland-sessions/io.github.zonaro.Jolven.GameMode.desktop` (sem trocar o login padrão). Se faltar Gamescope, o processo falha em vez de prometer uma sessão utilizável. Dependências adicionais do Jolven ainda não são instaladas automaticamente; elas precisam estar presentes no sistema-base para a sessão funcionar.
 
+### Identidade da ISO e compatibilidade
+
+O motor agora confere **três camadas independentes**, sem presumir que hash calculado pelo usuário prova autenticidade: formato ISO-9660, nome oficial da edição quando reconhecível e `ID=nobara` + `VERSION_ID` na raiz Linux antes de gravar o Jolven. Se a ISO indicar Fedora, outra distro ou versão antiga, o processo é interrompido. Uma ISO renomeada pode passar na inspeção do nome, mas **nunca** na verificação da raiz se não for Nobara. Isso **não equivale a assinatura do produtor**; downloads internos usam a origem e checksums do Nobara, enquanto imagens locais exigem confirmação manual de procedência.
+
 **Limitações críticas:** ainda não executamos o ciclo boot live → instalar → reiniciar nas cinco edições; a saída pode não ser inicializável nem persistir corretamente no sistema instalado. Secure Boot **não está validado**. Não distribuir a ISO produzida como release estável. O modo experimental aceita checksum informado pelo operador e **não** prova a procedência criptográfica da ISO. Builds oficiais futuros exigem catálogo autenticado, dependências, QA e assinatura conforme aplicável.
 
 Para criar o tarball Jolven a partir de um commit conhecido sem instalar nada no computador de construção (exige toolchain Meson e dependências de desenvolvimento previamente instaladas):
