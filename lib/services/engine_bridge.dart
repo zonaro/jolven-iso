@@ -133,7 +133,7 @@ class EngineBridge {
     try {
       final path = File('${dir.path}/project.json');
       await path.writeAsString(jsonEncode(data), flush: true);
-      return _invoke([
+      return await _invoke([
         'plan', '--project',
         Platform.isWindows ? await _wslPath(path.path) : path.path,
       ]);
