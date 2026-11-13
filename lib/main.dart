@@ -837,7 +837,7 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
       _busy = true;
       _available = [];
       _selected = null;
-      _message = 'Consultando catálogo oficial de ' + _sources[_distribution]! + '...';
+      _message = 'Consultando catálogo oficial de ${_sources[_distribution]}...';
     });
     try {
       final found = await _catalog.load(_distribution);
@@ -874,7 +874,7 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
     if (!mounted || destination == null) return;
     setState(() {
       _busy = true;
-      _downloading = true;
+      _downloading = false;
       _received = 0;
       _total = null;
       _message = 'Consultando checksum publicado na origem oficial...';
@@ -883,9 +883,11 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
     try {
       final digest = await _catalog.expectedHash(selected);
       if (!mounted) return;
-      setState(() => _message =
-          'Baixando ' + selected.name + ' e verificando ' +
-          selected.algorithm.toUpperCase() + ' ao concluir...');
+      setState(() {
+        _downloading = true;
+        _message = 'Baixando ${selected.name} e verificando '
+            '${selected.algorithm.toUpperCase()} ao concluir...';
+      });
       final result = await _downloader.downloadOfficial(
         selected, File(destination.path),
         expectedDigest: digest,
@@ -893,7 +895,9 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
           if (!mounted) return;
           final now = DateTime.now();
           if (total != bytes &&
-              now.difference(_lastUpdate).inMilliseconds < 250) return;
+              now.difference(_lastUpdate).inMilliseconds < 250) {
+            return;
+          }
           _lastUpdate = now;
           setState(() {
             _received = bytes;
@@ -1030,10 +1034,10 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
               const SizedBox(height: 6),
               Text(
                 total == null
-                  ? 'Baixados ' + (_received / 1048576).toStringAsFixed(1) + ' MiB'
-                  : (_received / 1048576).toStringAsFixed(1) + ' / ' +
-                    (total / 1048576).toStringAsFixed(1) + ' MiB (' +
-                    (100 * progress!).toStringAsFixed(1) + '%)',
+                  ? 'Baixados ${(_received / 1048576).toStringAsFixed(1)} MiB'
+                  : '${(_received / 1048576).toStringAsFixed(1)} / '
+                    '${(total / 1048576).toStringAsFixed(1)} MiB '
+                    '(${(100 * progress!).toStringAsFixed(1)}%)',
               ),
               TextButton.icon(
                 onPressed: _downloader.cancel,
@@ -1043,7 +1047,7 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
             ],
             if (_path != null) ...[
               const SizedBox(height: 12),
-              SelectableText('ISO: ' + _path!),
+              SelectableText('ISO: $_path'),
               if (!_busy)
                 OutlinedButton(
                   onPressed: _inspectIso,
@@ -1052,11 +1056,11 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
             ],
             if (_hash != null) ...[
               const SizedBox(height: 8),
-              SelectableText('SHA-256: ' + _hash!),
+              SelectableText('SHA-256: $_hash'),
               if (_checksumKind != null)
                 Text(_checksumKind == 'local'
                   ? 'Checksum calculado localmente (não autenticado).'
-                  : 'Verificação do arquivo: ' + _checksumKind!.toUpperCase()),
+                  : 'Verificação do arquivo: ${_checksumKind!.toUpperCase()}'),
             ],
             if (_message != null) ...[
               const SizedBox(height: 8),
