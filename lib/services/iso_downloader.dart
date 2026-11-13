@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings, prefer_adjacent_string_concatenation, curly_braces_in_flow_control_structures
+
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'nobara_catalog.dart';
