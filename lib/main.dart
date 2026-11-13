@@ -3,6 +3,9 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:file_selector/file_selector.dart';
+// Flutter 3.50 flags this legacy import while the Material UI split settles.
+// Keep migration separate from the multi-distro ISO changes.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
