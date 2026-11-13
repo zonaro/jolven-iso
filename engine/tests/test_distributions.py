@@ -1,5 +1,9 @@
 """Distribution profiles are catalog metadata, not a compose whitelist."""
 import unittest
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from jolven_iso.distributions import PROFILES, list_profiles, profile
 
