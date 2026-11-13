@@ -2,7 +2,8 @@
 
 - Código simples e testável. Flutter/Dart para UI, engine de remasterização isolado e invocável por CLI.
 - **Nunca alegar que uma ISO foi modificada/testada sem evidência.** O protótipo permite composição experimental, mas não há imagem Nobara real validada.
-- Manter a entrada uma ISO oficial do Nobara; não substituir o processo por uma distro derivada reconstruída sem solicitação.
+- O catálogo e a GUI permitem inspeção **somente leitura** de ISOs oficiais Nobara, Fedora, CachyOS, BigLinux e Ubuntu. O motor de composição ainda é específico para Nobara; não abrir compose de outras distros sem adaptadores verificados (#14).
+- Não reconstruir distros inteiras: preservar imagem original e instalador. Seleção ou nome de ISO e SHA-256 informado pelo usuário não autenticam a procedência nem provam boot.
 - Não invocar comandos de root/sudo automaticamente; executar operações perigosas somente mediante confirmação e isolamento.
 - Nenhum segredo (tokens, senhas, credenciais) em perfil JSON, ISO, logs, artefatos ou workflows.
 - Verificar a disponibilidade de pacotes extras no sistema de pacotes específico da edição; não usar downloads arbitrários como fallback silencioso.
