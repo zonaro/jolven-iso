@@ -160,6 +160,7 @@ class IsoDownloader {
       }
       final sha = kind == 'sha256' ? digest :
           (await sha256.bind(partial.openRead()).first).toString();
+      if (_cancelled) throw const DownloadCancelled();
       if (await destination.exists()) {
         throw const FileSystemException('Destino criado por outro processo.');
       }
