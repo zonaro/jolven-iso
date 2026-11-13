@@ -2,7 +2,7 @@
 
 - Código simples e testável. Flutter/Dart para UI, engine de remasterização isolado e invocável por CLI.
 - **Nunca alegar que uma ISO foi modificada/testada sem evidência.** O protótipo permite composição experimental, mas não há imagem Nobara real validada.
-- O catálogo e a GUI permitem inspeção **somente leitura** de ISOs oficiais Nobara, Fedora, CachyOS, BigLinux e Ubuntu. O motor de composição ainda é específico para Nobara; não abrir compose de outras distros sem adaptadores verificados (#14).
+- Os catálogos e a GUI permitem **selecionar arquivos locais e baixar ISOs oficiais** de Nobara, Fedora, CachyOS, BigLinux e Ubuntu, verificando hashes; o fluxo de ISO não modifica conteúdo durante o download. O motor de composição ainda é específico para Nobara; não abrir compose de outras distros sem adaptadores verificados (#14).
 - Não reconstruir distros inteiras: preservar imagem original e instalador. Seleção ou nome de ISO e SHA-256 informado pelo usuário não autenticam a procedência nem provam boot.
 - Não invocar comandos de root/sudo automaticamente; executar operações perigosas somente mediante confirmação e isolamento.
 - Nenhum segredo (tokens, senhas, credenciais) em perfil JSON, ISO, logs, artefatos ou workflows.
@@ -23,3 +23,5 @@
 - Validar os três builds Linux AppImage/Windows EXE+ZIP/macOS .app ZIP no CI; confirmar execução real antes de release estável.
 
 - Nunca interpretar o resultado de `audit` como certificação de boot: o comando testa apenas metadados ópticos e volume ID. A saída continua experimental até instalar e usar no Nobara real.
+
+- Para downloads oficiais, preservar URL HTTPS allowlist, integridade publicada por arquivo, progresso e retomada segura via .part; fontes sem checksum suficiente precisam advertência (BigLinux usa MD5, não alegar assinatura).
