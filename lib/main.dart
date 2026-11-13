@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'models/iso_project.dart';
 import 'services/nobara_catalog.dart';
+import 'services/official_iso_catalog.dart';
 import 'services/iso_downloader.dart';
 import 'services/iso_signature.dart';
 import 'services/engine_bridge.dart';
@@ -741,8 +742,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
 }
 
  
-/// Read-only source selector. Non-Nobara ISO remastering is intentionally locked
-/// until the real installer and installed-system persistence have been tested.
+/// Select local images or download from verified distro repositories.
+/// These four images remain inspect-only until remaster adapters pass QA.
 class _ExternalIsoInspector extends StatefulWidget {
   const _ExternalIsoInspector();
 
@@ -759,27 +760,45 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
   };
   static const _official = <String, String>{
     'cachyos': 'https://cachyos.org/download/',
-    'biglinux': 'https://www.biglinux.com.br/',
+    'biglinux': 'https://www.biglinux.com.br/pt-br/download/',
     'ubuntu': 'https://ubuntu.com/download/desktop',
-    'fedora': 'https://fedoraproject.org/',
+    'fedora': 'https://fedoraproject.org/workstation/download/',
   };
+  final _catalog = OfficialIsoCatalog();
+  final _downloader = IsoDownloader();
+
   String _distribution = 'cachyos';
+  List<OfficialIso> _available = [];
+  OfficialIso? _selected;
   String? _path;
   String? _hash;
   String? _message;
+  String? _checksumKind;
   bool _busy = false;
+  bool _downloading = false;
+  int _received = 0;
+  int? _total;
+  DateTime _lastUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void dispose() {
+    _downloader.cancel();
+    super.dispose();
+  }
 
   Future<void> _pickIso() async {
-    final selected = await openFile(
+    if (_busy) return;
+    final chosen = await openFile(
       acceptedTypeGroups: [
         const XTypeGroup(label: 'Imagem ISO', extensions: ['iso']),
       ],
     );
-    if (!mounted || selected == null) return;
+    if (!mounted || chosen == null) return;
     setState(() {
-      _path = selected.path;
+      _path = chosen.path;
       _hash = null;
-      _message = null;
+      _checksumKind = null;
+      _message = 'Arquivo local selecionado. Confira seu checksum com o fornecedor.';
     });
   }
 
@@ -789,12 +808,11 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
     setState(() {
       _busy = true;
       _hash = null;
-      _message = 'Inspecionando arquivo local sem executar o conteúdo...';
+      _message = 'Inspecionando ISO local...';
     });
     try {
       final source = File(path);
-      if (!await source.exists() ||
-          !path.toLowerCase().endsWith('.iso') ||
+      if (!path.toLowerCase().endsWith('.iso') ||
           !await IsoSignature.isIso9660(source)) {
         throw const FormatException('Selecione uma ISO-9660 válida.');
       }
@@ -802,9 +820,9 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
       if (!mounted) return;
       setState(() {
         _hash = digest.toString();
-        _message =
-            'ISO-9660 detectada. Compare este SHA-256 com a fonte oficial. '
-            'A distribuição escolhida ainda não foi validada dentro da imagem.';
+        _checksumKind = 'local';
+        _message = 'SHA-256 local calculado. Verifique-o com o fornecedor; '
+            'o formato ISO-9660 não prova a autenticidade da distribuição.';
       });
     } catch (error) {
       if (mounted) setState(() => _message = 'Inspeção recusada: $error');
@@ -813,86 +831,244 @@ class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
     }
   }
 
+  Future<void> _refreshCatalog() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _available = [];
+      _selected = null;
+      _message = 'Consultando catálogo oficial de ' + _sources[_distribution]! + '...';
+    });
+    try {
+      final found = await _catalog.load(_distribution);
+      if (found.isEmpty) {
+        throw const FormatException(
+            'Nenhuma ISO compatível foi anunciada no catálogo.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _available = found;
+        _selected = found.first;
+        _message = 'Selecione a edição e baixe diretamente, ou use uma ISO local.';
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _message =
+            'Não foi possível consultar as ISOs oficiais: $error. '
+            'Você ainda pode escolher uma ISO local.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _downloadSelected() async {
+    final selected = _selected;
+    if (selected == null || _busy) return;
+    final destination = await getSaveLocation(
+      suggestedName: selected.name,
+      acceptedTypeGroups: [
+        const XTypeGroup(label: 'Imagem ISO', extensions: ['iso']),
+      ],
+    );
+    if (!mounted || destination == null) return;
+    setState(() {
+      _busy = true;
+      _downloading = true;
+      _received = 0;
+      _total = null;
+      _message = 'Consultando checksum publicado na origem oficial...';
+      _lastUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    });
+    try {
+      final digest = await _catalog.expectedHash(selected);
+      if (!mounted) return;
+      setState(() => _message =
+          'Baixando ' + selected.name + ' e verificando ' +
+          selected.algorithm.toUpperCase() + ' ao concluir...');
+      final result = await _downloader.downloadOfficial(
+        selected, File(destination.path),
+        expectedDigest: digest,
+        onProgress: (bytes, total) {
+          if (!mounted) return;
+          final now = DateTime.now();
+          if (total != bytes &&
+              now.difference(_lastUpdate).inMilliseconds < 250) return;
+          _lastUpdate = now;
+          setState(() {
+            _received = bytes;
+            _total = total;
+          });
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _path = destination.path;
+        _hash = result.sha256;
+        _checksumKind = result.verifiedAlgorithm;
+        _message = result.verifiedAlgorithm == 'md5'
+            ? 'Arquivo conferido com o MD5 publicado pelo BigLinux. '
+              'MD5 é fraco contra adulteração intencional; compare também '
+              'a origem oficial. SHA-256 local calculado.'
+            : 'ISO baixada. SHA-256 conferido com o checksum publicado '
+              'pela distribuição. A assinatura do fornecedor não foi validada.';
+      });
+    } on DownloadCancelled {
+      if (mounted) {
+        setState(() => _message =
+            'Download cancelado. O arquivo .part foi preservado e poderá '
+            'ser retomado escolhendo o mesmo destino.');
+      }
+    } catch (error) {
+      if (mounted) setState(() => _message = 'Download não concluído: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _downloading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _openOfficial() async {
-    final uri = Uri.parse(_official[_distribution]!);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+    final url = Uri.parse(_official[_distribution]!);
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication) &&
         mounted) {
       setState(() => _message = 'Não foi possível abrir o site oficial.');
     }
   }
 
   @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Outras ISOs oficiais — inspeção somente',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              const Text(
-                'CachyOS, BigLinux, Ubuntu e Fedora já podem ser '
-                'selecionados e verificados como arquivos locais. '
-                'A injeção do Jolven nessas ISOs ainda não está disponível: '
-                'os instaladores e layouts precisam de adaptadores próprios.',
+  Widget build(BuildContext context) {
+    final total = _total;
+    final progress = total == null || total <= 0
+        ? null : (_received / total).clamp(0.0, 1.0);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Outras distribuições — ISO local ou download',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            const Text(
+              'Selecione uma ISO local ou baixe uma versão publicada pela '
+              'distribuição. Remasterizar essas quatro bases ainda depende '
+              'de adaptadores e validação de boot/instalação.',
+            ),
+            const SizedBox(height: 12),
+            DropdownButton<String>(
+              value: _distribution,
+              isExpanded: true,
+              items: [
+                for (final entry in _sources.entries)
+                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+              ],
+              onChanged: _busy ? null : (value) {
+                if (value == null) return;
+                setState(() {
+                  _distribution = value;
+                  _available = [];
+                  _selected = null;
+                  _path = null;
+                  _hash = null;
+                  _checksumKind = null;
+                  _message = null;
+                  _received = 0;
+                  _total = null;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _pickIso,
+                icon: const Icon(Icons.folder_open_outlined),
+                label: const Text('Selecionar ISO local'),
               ),
-              const SizedBox(height: 12),
-              DropdownButton<String>(
-                value: _distribution,
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : _refreshCatalog,
+                icon: const Icon(Icons.cloud_download_outlined),
+                label: const Text('Buscar ISOs para baixar'),
+              ),
+              TextButton(
+                onPressed: _busy ? null : _openOfficial,
+                child: const Text('Site oficial'),
+              ),
+            ]),
+            if (_available.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              DropdownButton<OfficialIso>(
+                value: _selected,
                 isExpanded: true,
                 items: [
-                  for (final source in _sources.entries)
-                    DropdownMenuItem(
-                      value: source.key,
-                      child: Text(source.value),
-                    ),
+                  for (final iso in _available)
+                    DropdownMenuItem(value: iso,
+                      child: Text(iso.label, overflow: TextOverflow.ellipsis)),
                 ],
-                onChanged: _busy
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(() {
-                            _distribution = value;
-                            _path = null;
-                            _hash = null;
-                            _message = null;
-                          });
-                        }
-                      },
+                onChanged: _busy ? null : (value) =>
+                    setState(() => _selected = value),
               ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: _busy ? null : _openOfficial,
-                    child: const Text('Abrir site oficial'),
-                  ),
-                  OutlinedButton(
-                    onPressed: _busy ? null : _pickIso,
-                    child: const Text('Selecionar ISO local'),
-                  ),
-                  FilledButton.tonal(
-                    onPressed: _busy || _path == null ? null : _inspectIso,
-                    child: const Text('Inspecionar e calcular SHA-256'),
-                  ),
-                ],
+              if (_selected?.algorithm == 'md5') ...[
+                const SizedBox(height: 8),
+                const Text('O BigLinux publica MD5, não SHA-256. O app verificará '
+                    'esse MD5 e também calculará SHA-256 local, mas MD5 não '
+                    'garante autenticidade contra adulteração.'),
+              ],
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: _busy || _selected == null ? null : _downloadSelected,
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Baixar ISO selecionada'),
               ),
-              if (_path != null) ...[
-                const SizedBox(height: 8),
-                SelectableText(_path!),
-              ],
-              if (_hash != null) ...[
-                const SizedBox(height: 8),
-                SelectableText('SHA-256: $_hash'),
-              ],
-              if (_message != null) ...[
-                const SizedBox(height: 8),
-                Text(_message!),
-              ],
             ],
-          ),
+            if (_downloading) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(value: progress),
+              const SizedBox(height: 6),
+              Text(
+                total == null
+                  ? 'Baixados ' + (_received / 1048576).toStringAsFixed(1) + ' MiB'
+                  : (_received / 1048576).toStringAsFixed(1) + ' / ' +
+                    (total / 1048576).toStringAsFixed(1) + ' MiB (' +
+                    (100 * progress!).toStringAsFixed(1) + '%)',
+              ),
+              TextButton.icon(
+                onPressed: _downloader.cancel,
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancelar download'),
+              ),
+            ],
+            if (_path != null) ...[
+              const SizedBox(height: 12),
+              SelectableText('ISO: ' + _path!),
+              if (!_busy)
+                OutlinedButton(
+                  onPressed: _inspectIso,
+                  child: const Text('Inspecionar ISO local'),
+                ),
+            ],
+            if (_hash != null) ...[
+              const SizedBox(height: 8),
+              SelectableText('SHA-256: ' + _hash!),
+              if (_checksumKind != null)
+                Text(_checksumKind == 'local'
+                  ? 'Checksum calculado localmente (não autenticado).'
+                  : 'Verificação do arquivo: ' + _checksumKind!.toUpperCase()),
+            ],
+            if (_message != null) ...[
+              const SizedBox(height: 8),
+              Text(_message!),
+            ],
+            if (_busy && !_downloading) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
