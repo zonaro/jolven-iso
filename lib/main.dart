@@ -482,6 +482,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
                 'A geração de ISO ainda é experimental: exige validação em máquina virtual e não é recomendada para instalação principal.',
               ),
               const SizedBox(height: 24),
+              const _ExternalIsoInspector(),
+              const SizedBox(height: 24),
               _section('1 · Imagem base'),
               DropdownButton<NobaraEdition>(
                 value: _edition,
@@ -734,3 +736,159 @@ class _BuilderScreenState extends State<BuilderScreen> {
             style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
       );
 }
+
+ 
+/// Read-only source selector. Non-Nobara ISO remastering is intentionally locked
+/// until the real installer and installed-system persistence have been tested.
+class _ExternalIsoInspector extends StatefulWidget {
+  const _ExternalIsoInspector();
+
+  @override
+  State<_ExternalIsoInspector> createState() => _ExternalIsoInspectorState();
+}
+
+class _ExternalIsoInspectorState extends State<_ExternalIsoInspector> {
+  static const _sources = <String, String>{
+    'cachyos': 'CachyOS',
+    'biglinux': 'BigLinux',
+    'ubuntu': 'Ubuntu',
+    'fedora': 'Fedora',
+  };
+  static const _official = <String, String>{
+    'cachyos': 'https://cachyos.org/download/',
+    'biglinux': 'https://www.biglinux.com.br/',
+    'ubuntu': 'https://ubuntu.com/download/desktop',
+    'fedora': 'https://fedoraproject.org/',
+  };
+  String _distribution = 'cachyos';
+  String? _path;
+  String? _hash;
+  String? _message;
+  bool _busy = false;
+
+  Future<void> _pickIso() async {
+    final selected = await openFile(
+      acceptedTypeGroups: [
+        const XTypeGroup(label: 'Imagem ISO', extensions: ['iso']),
+      ],
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _path = selected.path;
+      _hash = null;
+      _message = null;
+    });
+  }
+
+  Future<void> _inspectIso() async {
+    final path = _path;
+    if (path == null || _busy) return;
+    setState(() {
+      _busy = true;
+      _hash = null;
+      _message = 'Inspecionando arquivo local sem executar o conteúdo...';
+    });
+    try {
+      final source = File(path);
+      if (!await source.exists() ||
+          !path.toLowerCase().endsWith('.iso') ||
+          !await IsoSignature.isIso9660(source)) {
+        throw const FormatException('Selecione uma ISO-9660 válida.');
+      }
+      final digest = await sha256.bind(source.openRead()).first;
+      if (!mounted) return;
+      setState(() {
+        _hash = digest.toString();
+        _message =
+            'ISO-9660 detectada. Compare este SHA-256 com a fonte oficial. '
+            'A distribuição escolhida ainda não foi validada dentro da imagem.';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _message = 'Inspeção recusada: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openOfficial() async {
+    final uri = Uri.parse(_official[_distribution]!);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      setState(() => _message = 'Não foi possível abrir o site oficial.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Outras ISOs oficiais — inspeção somente',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text(
+                'CachyOS, BigLinux, Ubuntu e Fedora já podem ser '
+                'selecionados e verificados como arquivos locais. '
+                'A injeção do Jolven nessas ISOs ainda não está disponível: '
+                'os instaladores e layouts precisam de adaptadores próprios.',
+              ),
+              const SizedBox(height: 12),
+              DropdownButton<String>(
+                value: _distribution,
+                isExpanded: true,
+                items: [
+                  for (final source in _sources.entries)
+                    DropdownMenuItem(
+                      value: source.key,
+                      child: Text(source.value),
+                    ),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() {
+                            _distribution = value;
+                            _path = null;
+                            _hash = null;
+                            _message = null;
+                          });
+                        }
+                      },
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton(
+                    onPressed: _busy ? null : _openOfficial,
+                    child: const Text('Abrir site oficial'),
+                  ),
+                  OutlinedButton(
+                    onPressed: _busy ? null : _pickIso,
+                    child: const Text('Selecionar ISO local'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: _busy || _path == null ? null : _inspectIso,
+                    child: const Text('Inspecionar e calcular SHA-256'),
+                  ),
+                ],
+              ),
+              if (_path != null) ...[
+                const SizedBox(height: 8),
+                SelectableText(_path!),
+              ],
+              if (_hash != null) ...[
+                const SizedBox(height: 8),
+                SelectableText('SHA-256: $_hash'),
+              ],
+              if (_message != null) ...[
+                const SizedBox(height: 8),
+                Text(_message!),
+              ],
+            ],
+          ),
+        ),
+      );
