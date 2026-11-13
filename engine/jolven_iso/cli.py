@@ -17,6 +17,7 @@ from .profile import ProfileError
 from .extras import ExtrasError
 from .audit import audit_iso, AuditError
 from .image_identity import check_selected_edition, IdentityError
+from .distributions import PROFILES, list_profiles
 
 EDITIONS = {"official", "gnome", "kde", "steam-htpc", "steam-handheld"}
 EXTRAS = {"sunshine", "retroarch", "uzdoom", "eden", "cemu", "openrgb"}
@@ -147,8 +148,11 @@ def plan_project(path: Path) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Jolven ISO preflight, sem remasterização")
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("profiles", help="Listar as distros e seu status de compatibilidade")
     inspect = commands.add_parser("inspect", help="Inspecionar metadados básicos ISO-9660")
     inspect.add_argument("--iso", type=Path, required=True)
+    inspect.add_argument("--distribution", choices=tuple(PROFILES),
+      help="Distribuição declarada pelo operador (não verifica identidade da ISO)")
     verify = commands.add_parser("verify", help="Conferir SHA-256 informado")
     verify.add_argument("--iso", type=Path, required=True)
     verify.add_argument("--sha256", required=True)
@@ -170,8 +174,14 @@ def main(argv: list[str] | None = None) -> int:
       help="Confirmo que obtive ISO e checksum de uma fonte oficial confiável")
     options = parser.parse_args(argv)
     try:
-        if options.command == "inspect":
+        if options.command == "profiles":
+            result = {"distributions": list_profiles(), "notice": "Somente Nobara possui composição experimental. Nenhuma ISO foi certificada."}
+        elif options.command == "inspect":
             result = check_iso(options.iso)
+            if options.distribution:
+                result["selected_distribution"] = options.distribution
+                result["distribution_authenticity_verified"] = False
+                result["compose_status"] = PROFILES[options.distribution].compose_status
         elif options.command == "verify":
             result = verify_iso(options.iso, options.sha256)
         elif options.command == "plan":
