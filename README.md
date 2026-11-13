@@ -6,6 +6,39 @@ Projeto independente do [Jolven](https://github.com/zonaro/jolven) e do [Nobara]
 
 > **Estado: protótipo experimental, não certificado.** A interface Flutter consulta o catálogo oficial, baixa/verifica ISO, exporta projeto, confere o motor e pode tentar **gerar uma ISO experimental em Linux/WSL2 com libguestfs/FUSE, sem root**. A CLI Linux também oferece um fallback de loop mount privilegiado. Não há validação de boot, instalador, GDM/SDDM, NVIDIA ou Secure Boot nas cinco edições: não anuncie a ISO como uma release pronta.
 
+## Distribuições disponíveis no seletor
+
+O Builder aceita **inspeção local somente-leitura** de ISOs oficiais Nobara,
+**CachyOS, BigLinux, Ubuntu e Fedora**. Esta etapa verifica a assinatura básica
+ISO-9660 e calcula SHA-256, mas **não prova autenticidade**: compare o hash com
+a publicação oficial. A seleção da distro é uma declaração do usuário, não
+a identidade validada do sistema de arquivos dentro da imagem.
+
+| Base | Inspecionar arquivo e hash | Injeção e remasterização | Instalador e boot |
+| --- | --- | --- | --- |
+| Nobara | Sim | Experimental existente, exclusivamente LiveOS Nobara | Não certificados |
+| Fedora | Sim | Não implementada; requer perfil LiveOS Fedora | Não certificados |
+| CachyOS | Sim | Não implementada; requer perfil ArchISO/Calamares e integração netinstall | Não certificados |
+| BigLinux | Sim | Não implementada; requer estudar layout Manjaro/Calamares da ISO oficial | Não certificados |
+| Ubuntu | Sim | Não implementada; requer perfil casper/instalador Ubuntu | Não certificados |
+
+**A GUI não habilita composição das quatro novas bases** até existir um backend
+seguro e testes reais de boot, instalação no disco e persistência do Jolven.
+O trabalho de implementação está documentado no [épico #14](https://github.com/zonaro/jolven-iso/issues/14).
+Não distribuir uma ISO experimental como imagem pronta para uso.
+
+CLI para conferir perfis e inspecionar qualquer uma das quatro novas bases:
+
+```bash
+PYTHONPATH=engine python3 -m jolven_iso.cli profiles
+PYTHONPATH=engine python3 -m jolven_iso.cli inspect --iso /caminho/fedora.iso --distribution fedora
+PYTHONPATH=engine python3 -m jolven_iso.cli verify --iso /caminho/fedora.iso --sha256 HASH_OFICIAL
+```
+
+Esses comandos não montam nem modificam a ISO. O comando compose continua
+restrito a projetos Nobara v1. Hash fornecido pelo operador não equivale à
+assinatura/autenticidade do distribuidor.
+
 ## Escopo
 
 - Entrada: ISO oficial Nobara 44, uma de **Official, GNOME, KDE, Steam-HTPC ou Steam-Handheld**; versão futura exige adaptação e novos testes.
