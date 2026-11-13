@@ -39,6 +39,27 @@ Esses comandos não montam nem modificam a ISO. O comando compose continua
 restrito a projetos Nobara v1. Hash fornecido pelo operador não equivale à
 assinatura/autenticidade do distribuidor.
 
+## Selecionar ou baixar uma ISO diretamente no aplicativo
+
+Na tela do Builder, escolha uma das duas opções:
+
+- **Selecionar ISO local**: escolhe um arquivo existente e calcula o SHA-256, que deve ser comparado com o checksum do fornecedor.
+- **Buscar ISOs para baixar**: consulta os catálogos oficiais, apresenta versões/edições, permite selecionar o destino e baixa no próprio app, com progresso, cancelamento e retomada do arquivo `.part`.
+
+O download verifica o checksum publicado antes de renomear `.part` para `.iso`; um checksum divergente é descartado. Os catálogos e algoritmos são:
+
+| Distribuição | Origem das ISOs | Verificação publicada |
+| --- | --- | --- |
+| Nobara | nobaraproject.org / nobara-images.nobaraproject.org | SHA-256 |
+| Fedora Workstation | fedoraproject.org / dl.fedoraproject.org | SHA-256 do manifesto oficial (a assinatura OpenPGP **não** é verificada automaticamente) |
+| Ubuntu Desktop | releases.ubuntu.com | SHA256SUMS (sem validação automática da assinatura GPG) |
+| CachyOS Desktop | build.cachyos.org/ISO/desktop | .iso.sha256 |
+| BigLinux | iso.biglinux.com.br | .iso.md5, conforme publicado pelo fornecedor (**MD5 é fraco**); o app calcula SHA-256 local para referência |
+
+Links só são aceitos de catálogos conhecidos; redirecionamentos de mirrors usam HTTPS e o conteúdo final deve bater com o checksum separado. Se o site oficial mudar o formato, a descoberta falha explicitamente e a seleção local permanece disponível. O aplicativo **não confirma assinatura criptográfica ou bootabilidade** de nenhuma dessas imagens.
+
+**Atenção:** o download está disponível para todas as cinco origens, mas a remasterização das quatro bases adicionais ainda não foi implementada. O compositor experimental continua exclusivo do Nobara; veja [#14](https://github.com/zonaro/jolven-iso/issues/14) e [#15](https://github.com/zonaro/jolven-iso/issues/15).
+
 ## Escopo
 
 - Entrada: ISO oficial Nobara 44, uma de **Official, GNOME, KDE, Steam-HTPC ou Steam-Handheld**; versão futura exige adaptação e novos testes.
