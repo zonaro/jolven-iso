@@ -76,3 +76,15 @@ Licenças: MIT apenas para este gerador, não substitui as licenças de Nobara, 
 ## Verificação de identidade de imagem
 
 O módulo `engine/jolven_iso/image_identity.py` verifica o par edição/nome da ISO e, antes de qualquer escrita no rootfs extraído, exige `/etc/os-release` com `ID=nobara` e `VERSION_ID>=44`. Ele não garante autenticidade criptográfica da imagem, que depende de origem e checksum oficial. A UI repete a checagem de edição para impedir erro operacional cedo.
+
+## Perfis de distribuição (13/11/2026)
+
+O catálogo somente-leitura em `engine/jolven_iso/distributions.py` lista Nobara, Fedora,
+CachyOS, BigLinux e Ubuntu, com família de pacotes, fonte oficial e status de compose.
+A UI Flutter permite inspecionar ISO-9660/SHA-256 das quatro novas bases, sem passar
+imagens para o remasterizador Nobara. `cli profiles` publica capacidades conservadoras;
+`cli inspect --distribution` **não autentica** a identidade, apenas registra a seleção.
+
+O backend Python `remaster_iso`, `image_identity` e `extras` permanece Nobara-only.
+O épico #14 descreve os adaptadores de LiveOS Fedora, casper Ubuntu e bases Arch/
+Manjaro, além de garantir instalação persistente do Jolven no sistema de destino.
